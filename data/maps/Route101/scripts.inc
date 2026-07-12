@@ -5,32 +5,6 @@ Route101_MapScripts::
 
 Route101_OnTransition:
 	call ProfBirch_EventScript_UpdateLocation
-	call_if_set FLAG_QUICK_START_PENDING, Route101_EventScript_QuickStart
-	end
-
-@ Nuzlocke QoL: skip straight to choosing a starter on a fresh save, bypassing the
-@ Birch/Zigzagoon chase cutscene and the truck/house walkthrough. Mirrors the tail end of
-@ Route101_EventScript_BirchsBag (the vanilla "choose starter" scene), minus the parts that
-@ only make sense when triggered by talking to an NPC (lock/faceplayer/fadescreen).
-Route101_EventScript_QuickStart::
-	clearflag FLAG_QUICK_START_PENDING
-	setvar VAR_LITTLEROOT_INTRO_STATE, 7
-	setflag FLAG_SYS_POKEMON_GET
-	setflag FLAG_RESCUED_BIRCH
-	removeobject LOCALID_ROUTE101_ZIGZAGOON
-	special ChooseStarter
-	waitstate
-	special HealPlayerParty
-	setflag FLAG_HIDE_ROUTE_101_BIRCH_ZIGZAGOON_BATTLE
-	clearflag FLAG_HIDE_LITTLEROOT_TOWN_BIRCHS_LAB_BIRCH
-	setflag FLAG_HIDE_ROUTE_101_BIRCH_STARTERS_BAG
-	setvar VAR_BIRCH_LAB_STATE, 2
-	setvar VAR_ROUTE101_STATE, 3
-	checkplayergender
-	call_if_eq VAR_RESULT, MALE, Route101_EventScript_HideMayInBedroom
-	call_if_eq VAR_RESULT, FEMALE, Route101_EventScript_HideBrendanInBedroom
-	warp MAP_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB, 6, 5
-	waitstate
 	end
 
 Route101_OnFrame:

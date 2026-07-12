@@ -124,14 +124,9 @@ static void ClearFrontierRecord(void)
     gSaveBlock2Ptr->frontier.opponentNames[1][0] = EOS;
 }
 
-// Nuzlocke QoL: skip the truck/Littleroot house intro. A fresh save warps straight to
-// Route101 instead of the truck; FLAG_QUICK_START_PENDING tells Route101's transition script
-// (Route101_EventScript_QuickStart) to immediately run the "choose starter" scene, bypassing
-// the Birch/Zigzagoon chase cutscene and the walk through the player's house.
 static void WarpToTruck(void)
 {
-    FlagSet(FLAG_QUICK_START_PENDING);
-    SetWarpDestination(MAP_GROUP(MAP_ROUTE101), MAP_NUM(MAP_ROUTE101), WARP_ID_NONE, 6, 13);
+    SetWarpDestination(MAP_GROUP(MAP_INSIDE_OF_TRUCK), MAP_NUM(MAP_INSIDE_OF_TRUCK), WARP_ID_NONE, -1, -1);
     WarpIntoMap();
 }
 
