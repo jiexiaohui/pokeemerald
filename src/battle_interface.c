@@ -1165,7 +1165,14 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 #define TYPE_ICON_DUAL_X_OFFSET_1  -17 // left icon: 1px further out, so a 1px gap remains between the two icons
 #define TYPE_ICON_DUAL_X_OFFSET_2  16  // right icon
 
-#define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
+// BUGFIX: this previously read (32 * 16 / TILE_SIZE_4BPP) = 16, treating TILE_SIZE_4BPP (a byte
+// count) as if it were a pixel count. Pixels must be converted to bytes first (4bpp = half a
+// byte per pixel) before dividing by the per-tile byte size. The old formula reserved/copied
+// twice as many tiles as the actual icon data (256 bytes = 8 tiles), so every icon creation
+// read 256 bytes past the end of the source gTypeIcon_* array (undefined behavior - pulls in
+// whatever the next declared const array in graphics.c happens to be) and wrote that garbage
+// into VRAM immediately after the real icon data.
+#define TYPE_ICON_TILE_COUNT ((32 * 16 / 2) / TILE_SIZE_4BPP) // 8 tiles
 
 // Reserves 16 tiles of VRAM for both icon slots by extending gReservedSpriteTileCount, at the
 // very start of battle (before ResetSpriteData()'s caller does anything else). This must
