@@ -189,7 +189,8 @@ static void MoveBattleBarGraphically(u8, u8);
 static u8 CalcBarFilledPixels(s32, s32, s32, s32 *, u8 *, u8);
 static void Debug_TestHealthBar_Helper(struct TestingBar *, s32 *, u16 *);
 static void DestroyOpponentTypeIconSprites(void);
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler);
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 healthboxSpriteId);
+static void SpriteCB_OpponentTypeIcon(struct Sprite *);
 
 static const struct OamData sOamData_64x32 =
 {
@@ -278,7 +279,7 @@ static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
     .anims = gDummySpriteAnimTable,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_OpponentTypeIcon,
 };
 
 static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
@@ -289,7 +290,7 @@ static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
     .anims = gDummySpriteAnimTable,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_OpponentTypeIcon,
 };
 
 static const struct SpriteTemplate sHealthboxPlayerSpriteTemplates[2] =
@@ -1136,10 +1137,18 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 }
 
 // Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
-#define TYPE_ICON_OPPONENT_X       44
-#define TYPE_ICON_OPPONENT_Y_ABOVE 8
-#define TYPE_ICON_DUAL_X_OFFSET_1  17 // left icon: 1px further out, so a 1px gap remains between the two icons
-#define TYPE_ICON_DUAL_X_OFFSET_2  16 // right icon
+// Icons are attached to the healthbox sprite: SpriteCB_OpponentTypeIcon tracks its position and
+// invisible flag every frame, so the icons slide in with the healthbox and don't appear until
+// it does, instead of being independently positioned/timed.
+#define TYPE_ICON_X_OFFSET         0   // relative to the healthbox sprite's own x (single icon)
+#define TYPE_ICON_Y_OFFSET         -22 // relative to the healthbox sprite's own y (above it)
+#define TYPE_ICON_DUAL_X_OFFSET_1  -17 // left icon: 1px further out, so a 1px gap remains between the two icons
+#define TYPE_ICON_DUAL_X_OFFSET_2  16  // right icon
+
+// sprite->data usage for the type icon sprites
+#define tIconHealthboxSpriteId data[0]
+#define tIconXOffset           data[1]
+#define tIconYOffset           data[2]
 
 #define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
 
@@ -1180,11 +1189,21 @@ static void DestroyOpponentTypeIconSprites(void)
     }
 }
 
-static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
+static void SpriteCB_OpponentTypeIcon(struct Sprite *sprite)
+{
+    u8 healthboxSpriteId = sprite->tIconHealthboxSpriteId;
+
+    sprite->x = gSprites[healthboxSpriteId].x + sprite->tIconXOffset;
+    sprite->y = gSprites[healthboxSpriteId].y + sprite->tIconYOffset;
+    sprite->invisible = gSprites[healthboxSpriteId].invisible;
+}
+
+static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId, s16 xOffset, s16 yOffset)
 {
     struct SpritePalette pal;
     u16 tileTag = (slot == 0) ? TAG_TYPE_ICON_TILE_1 : TAG_TYPE_ICON_TILE_2;
     u16 tileStart = GetSpriteTileStartByTag(tileTag);
+    u8 spriteId;
 
     // Tiles were already reserved by PreloadOpponentTypeIconTileSlots(); just overwrite the
     // pixel content in place rather than freeing/reallocating (see comment there for why).
@@ -1194,14 +1213,19 @@ static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
     pal.tag = (slot == 0) ? TAG_TYPE_ICON_PAL_1 : TAG_TYPE_ICON_PAL_2;
     LoadSpritePalette(&pal);
 
-    sOpponentTypeIconSpriteIds[slot] = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2, x, y, 0);
+    spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2,
+                             gSprites[healthboxSpriteId].x + xOffset, gSprites[healthboxSpriteId].y + yOffset, 0);
+    gSprites[spriteId].tIconHealthboxSpriteId = healthboxSpriteId;
+    gSprites[spriteId].tIconXOffset = xOffset;
+    gSprites[spriteId].tIconYOffset = yOffset;
+    gSprites[spriteId].invisible = gSprites[healthboxSpriteId].invisible;
+    sOpponentTypeIconSpriteIds[slot] = spriteId;
 }
 
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler)
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 healthboxSpriteId)
 {
     u16 species;
     u8 type1, type2;
-    s16 y;
 
     if (IsDoubleBattle())
         return;
@@ -1211,16 +1235,15 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler)
     species = GetMonData(mon, MON_DATA_SPECIES);
     type1 = gSpeciesInfo[species].types[0];
     type2 = gSpeciesInfo[species].types[1];
-    y = TYPE_ICON_OPPONENT_Y_ABOVE;
 
     if (type1 == type2)
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X, y);
+        CreateOpponentTypeIconSprite(0, type1, healthboxSpriteId, TYPE_ICON_X_OFFSET, TYPE_ICON_Y_OFFSET);
     }
     else
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X - TYPE_ICON_DUAL_X_OFFSET_1, y);
-        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_2, y);
+        CreateOpponentTypeIconSprite(0, type1, healthboxSpriteId, TYPE_ICON_DUAL_X_OFFSET_1, TYPE_ICON_Y_OFFSET);
+        CreateOpponentTypeIconSprite(1, type2, healthboxSpriteId, TYPE_ICON_DUAL_X_OFFSET_2, TYPE_ICON_Y_OFFSET);
     }
 }
 
@@ -2406,7 +2429,7 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
         if (elementId == HEALTHBOX_ALL)
-            UpdateOpponentTypeIconSprites(mon, battler);
+            UpdateOpponentTypeIconSprites(mon, healthboxSpriteId);
     }
 }
 
