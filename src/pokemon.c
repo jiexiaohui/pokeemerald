@@ -4808,9 +4808,9 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
     }
 
     // Skip using the item if it won't do anything
-    if (!ITEM_HAS_EFFECT(item))
+    if (item != ITEM_CANDY_DISPENSER && !ITEM_HAS_EFFECT(item))
         return TRUE;
-    if (gItemEffectTable[item - ITEM_POTION] == NULL && item != ITEM_ENIGMA_BERRY)
+    if (item != ITEM_CANDY_DISPENSER && item != ITEM_ENIGMA_BERRY && gItemEffectTable[item - ITEM_POTION] == NULL)
         return TRUE;
 
     // Get item effect
@@ -4820,6 +4820,10 @@ bool8 PokemonUseItemEffects(struct Pokemon *mon, u16 item, u8 partyIndex, u8 mov
             itemEffect = gEnigmaBerries[gActiveBattler].itemEffect;
         else
             itemEffect = gSaveBlock1Ptr->enigmaBerry.itemEffect;
+    }
+    else if (item == ITEM_CANDY_DISPENSER)
+    {
+        itemEffect = gItemEffectTable[ITEM_RARE_CANDY - ITEM_POTION];
     }
     else
     {
@@ -6062,6 +6066,37 @@ void MonGainEVs(struct Pokemon *mon, u16 defeatedSpecies)
         totalEVs += evIncrease;
         SetMonData(mon, MON_DATA_HP_EV + i, &evs[i]);
     }
+}
+
+u8 GetLevelCap(void)
+{
+    if (FlagGet(FLAG_SYS_GAME_CLEAR))
+        return 100;
+    if (FlagGet(FLAG_DEFEATED_ELITE_4_DRAKE))
+        return 58;
+    if (FlagGet(FLAG_DEFEATED_ELITE_4_GLACIA))
+        return 55;
+    if (FlagGet(FLAG_DEFEATED_ELITE_4_PHOEBE))
+        return 53;
+    if (FlagGet(FLAG_DEFEATED_ELITE_4_SIDNEY))
+        return 51;
+    if (FlagGet(FLAG_BADGE08_GET))
+        return 49;
+    if (FlagGet(FLAG_BADGE07_GET))
+        return 46;
+    if (FlagGet(FLAG_BADGE06_GET))
+        return 42;
+    if (FlagGet(FLAG_BADGE05_GET))
+        return 33;
+    if (FlagGet(FLAG_BADGE04_GET))
+        return 31;
+    if (FlagGet(FLAG_BADGE03_GET))
+        return 29;
+    if (FlagGet(FLAG_BADGE02_GET))
+        return 24;
+    if (FlagGet(FLAG_BADGE01_GET))
+        return 19;
+    return 15;
 }
 
 u16 GetMonEVCount(struct Pokemon *mon)

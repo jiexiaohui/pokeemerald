@@ -57,6 +57,8 @@ static void Task_OpenRegisteredPokeblockCase(u8);
 static void ItemUseOnFieldCB_Bike(u8);
 static void ItemUseOnFieldCB_Rod(u8);
 static void ItemUseOnFieldCB_Itemfinder(u8);
+static void ItemUseOnFieldCB_RepelCharmOn(u8);
+static void ItemUseOnFieldCB_RepelCharmOff(u8);
 static void ItemUseOnFieldCB_Berry(u8);
 static void ItemUseOnFieldCB_WailmerPailBerry(u8);
 static void ItemUseOnFieldCB_WailmerPailSudowoodo(u8);
@@ -835,6 +837,29 @@ void ItemUseOutOfBattle_Repel(u8 taskId)
         DisplayItemMessage(taskId, FONT_NORMAL, gText_RepelEffectsLingered, CloseItemMessage);
     else
         DisplayItemMessageInBattlePyramid(taskId, gText_RepelEffectsLingered, Task_CloseBattlePyramidBagMessage);
+}
+
+void ItemUseOutOfBattle_RepelCharm(u8 var)
+{
+    if (FlagGet(FLAG_REPEL_CHARM_ACTIVE))
+    {
+        FlagClear(FLAG_REPEL_CHARM_ACTIVE);
+        sItemUseOnFieldCB = ItemUseOnFieldCB_RepelCharmOff;
+    }
+    else
+    {
+        FlagSet(FLAG_REPEL_CHARM_ACTIVE);
+        sItemUseOnFieldCB = ItemUseOnFieldCB_RepelCharmOn;
+    }
+    SetUpItemUseOnFieldCallback(var);
+}
+static void ItemUseOnFieldCB_RepelCharmOn(u8 taskId)
+{
+    DisplayItemMessageOnField(taskId, gText_RepelCharmOn, Task_CloseItemfinderMessage);
+}
+static void ItemUseOnFieldCB_RepelCharmOff(u8 taskId)
+{
+    DisplayItemMessageOnField(taskId, gText_RepelCharmOff, Task_CloseItemfinderMessage);
 }
 
 static void Task_StartUseRepel(u8 taskId)

@@ -221,6 +221,7 @@ static EWRAM_DATA struct PartyMenuBox *sPartyMenuBoxes = NULL;
 static EWRAM_DATA u8 *sPartyBgGfxTilemap = NULL;
 static EWRAM_DATA u8 *sPartyBgTilemapBuffer = NULL;
 EWRAM_DATA bool8 gPartyMenuUseExitCallback = 0;
+EWRAM_DATA static bool8 sCandyDispenserMoveLearned = FALSE;
 EWRAM_DATA u8 gSelectedMonPartyId = 0;
 EWRAM_DATA MainCallback gPostMenuFieldCallback = NULL;
 static EWRAM_DATA u16 *sSlot1TilemapBuffer = 0; // for switching party slots
@@ -4960,7 +4961,10 @@ void ItemUseCB_RareCandy(u8 taskId, TaskFunc task)
     u16 *itemPtr = &gSpecialVar_ItemId;
     bool8 cannotUseEffect;
 
-    if (GetMonData(mon, MON_DATA_LEVEL) != MAX_LEVEL)
+    if (gSpecialVar_ItemId == ITEM_CANDY_DISPENSER)
+        sCandyDispenserMoveLearned = FALSE;
+
+    if (GetMonData(mon, MON_DATA_LEVEL) != MAX_LEVEL && GetMonData(mon, MON_DATA_LEVEL) < GetLevelCap())
     {
         BufferMonStatsToTaskData(mon, arrayPtr);
         cannotUseEffect = ExecuteTableBasedItemEffect_(gPartyMenu.slotId, *itemPtr, 0);
@@ -4976,14 +4980,18 @@ void ItemUseCB_RareCandy(u8 taskId, TaskFunc task)
         gPartyMenuUseExitCallback = FALSE;
         DisplayPartyMenuMessage(gText_WontHaveEffect, TRUE);
         ScheduleBgCopyTilemapToVram(2);
-        gTasks[taskId].func = task;
+        if (gSpecialVar_ItemId == ITEM_CANDY_DISPENSER)
+            gTasks[taskId].func = Task_HandleChooseMonInput;
+        else
+            gTasks[taskId].func = task;
     }
     else
     {
         gPartyMenuUseExitCallback = TRUE;
         PlayFanfareByFanfareNum(FANFARE_LEVEL_UP);
         UpdateMonDisplayInfoAfterRareCandy(gPartyMenu.slotId, mon);
-        RemoveBagItem(gSpecialVar_ItemId, 1);
+        if (gSpecialVar_ItemId != ITEM_CANDY_DISPENSER)
+            RemoveBagItem(gSpecialVar_ItemId, 1);
         GetMonNickname(mon, gStringVar1);
         ConvertIntToDecimalStringN(gStringVar2, GetMonData(mon, MON_DATA_LEVEL), STR_CONV_MODE_LEFT_ALIGN, 3);
         StringExpandPlaceholders(gStringVar4, gText_PkmnElevatedToLvVar2);
@@ -5106,12 +5114,16 @@ static void PartyMenuTryEvolution(u8 taskId)
     }
     else
     {
-        gTasks[taskId].func = Task_ClosePartyMenuAfterText;
+        if (gSpecialVar_ItemId == ITEM_CANDY_DISPENSER && !sCandyDispenserMoveLearned)
+            gTasks[taskId].func = Task_HandleChooseMonInput;
+        else
+            gTasks[taskId].func = Task_ClosePartyMenuAfterText;
     }
 }
 
 static void DisplayMonNeedsToReplaceMove(u8 taskId)
 {
+    sCandyDispenserMoveLearned = TRUE;
     GetMonNickname(&gPlayerParty[gPartyMenu.slotId], gStringVar1);
     StringCopy(gStringVar2, gMoveNames[gMoveToLearn]);
     StringExpandPlaceholders(gStringVar4, gText_PkmnNeedsToReplaceMove);
@@ -5123,6 +5135,7 @@ static void DisplayMonNeedsToReplaceMove(u8 taskId)
 
 static void DisplayMonLearnedMove(u8 taskId, u16 move)
 {
+    sCandyDispenserMoveLearned = TRUE;
     GetMonNickname(&gPlayerParty[gPartyMenu.slotId], gStringVar1);
     StringCopy(gStringVar2, gMoveNames[move]);
     StringExpandPlaceholders(gStringVar4, gText_PkmnLearnedMove3);

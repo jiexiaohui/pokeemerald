@@ -868,6 +868,18 @@ const struct Item gItems[] =
         .fieldUseFunc = ItemUseOutOfBattle_RareCandy,
     },
 
+    [ITEM_CANDY_DISPENSER] =
+{
+    .name = _("CANDY POUCH"),
+    .itemId = ITEM_CANDY_DISPENSER,
+    .price = 0,
+    .description = sCandyDispenserDesc,
+    .pocket = POCKET_KEY_ITEMS,
+    .type = ITEM_USE_PARTY_MENU,
+    .fieldUseFunc = ItemUseOutOfBattle_RareCandy,
+    .importance = 1,
+},
+
     [ITEM_PP_UP] =
     {
         .name = _("PP UP"),
@@ -1090,6 +1102,19 @@ const struct Item gItems[] =
         .type = ITEM_USE_BAG_MENU,
         .fieldUseFunc = ItemUseOutOfBattle_Repel,
     },
+
+    [ITEM_REPEL_CHARM] =
+{
+    .name = _("FUCKOFF POKMN"),
+    .itemId = ITEM_REPEL_CHARM,
+    .price = 0,
+    .description = sRepelCharmDesc,
+    .pocket = POCKET_KEY_ITEMS,
+    .type = ITEM_USE_FIELD,
+    .fieldUseFunc = ItemUseOutOfBattle_RepelCharm,
+    .importance = 1,
+    .registrability = TRUE,
+},
 
     [ITEM_057] =
     {

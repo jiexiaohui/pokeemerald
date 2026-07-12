@@ -855,6 +855,8 @@ bool8 UpdateRepelCounter(void)
         return FALSE;
     if (InUnionRoom() == TRUE)
         return FALSE;
+    if (FlagGet(FLAG_REPEL_CHARM_ACTIVE))
+        return FALSE;
 
     steps = VarGet(VAR_REPEL_STEP_COUNT);
 
@@ -875,7 +877,7 @@ static bool8 IsWildLevelAllowedByRepel(u8 wildLevel)
 {
     u8 i;
 
-    if (!VarGet(VAR_REPEL_STEP_COUNT))
+    if (!FlagGet(FLAG_REPEL_CHARM_ACTIVE) && !VarGet(VAR_REPEL_STEP_COUNT))
         return TRUE;
 
     for (i = 0; i < PARTY_SIZE; i++)

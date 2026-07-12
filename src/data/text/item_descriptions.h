@@ -281,6 +281,14 @@ static const u8 sRareCandyDesc[] = _(
     "of a POKéMON by\n"
     "one.");
 
+static const u8 sRepelCharmDesc[] = _(
+    "Toggles infinite\n"
+    "REPEL on or off.");
+    
+static const u8 sCandyDispenserDesc[] = _(
+    "Endlessly dispenses\n"
+    "RARE CANDY.");
+
 static const u8 sPPUpDesc[] = _(
     "Raises the maximum\n"
     "PP of a selected\n"
