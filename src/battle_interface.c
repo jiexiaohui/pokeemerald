@@ -188,6 +188,8 @@ static u8 GetScaledExpFraction(s32, s32, s32, u8);
 static void MoveBattleBarGraphically(u8, u8);
 static u8 CalcBarFilledPixels(s32, s32, s32, s32 *, u8 *, u8);
 static void Debug_TestHealthBar_Helper(struct TestingBar *, s32 *, u16 *);
+static void DestroyOpponentTypeIconSprites(void);
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler);
 
 static const struct OamData sOamData_64x32 =
 {
@@ -204,6 +206,90 @@ static const struct OamData sOamData_64x32 =
     .priority = 1,
     .paletteNum = 0,
     .affineParam = 0,
+};
+
+static const u32 *const sTypeIconTiles[NUMBER_OF_MON_TYPES] =
+{
+    [TYPE_NORMAL] = gTypeIcon_Normal,
+    [TYPE_FIGHTING] = gTypeIcon_Fighting,
+    [TYPE_FLYING] = gTypeIcon_Flying,
+    [TYPE_POISON] = gTypeIcon_Poison,
+    [TYPE_GROUND] = gTypeIcon_Ground,
+    [TYPE_ROCK] = gTypeIcon_Rock,
+    [TYPE_BUG] = gTypeIcon_Bug,
+    [TYPE_GHOST] = gTypeIcon_Ghost,
+    [TYPE_STEEL] = gTypeIcon_Steel,
+    [TYPE_FIRE] = gTypeIcon_Fire,
+    [TYPE_WATER] = gTypeIcon_Water,
+    [TYPE_GRASS] = gTypeIcon_Grass,
+    [TYPE_ELECTRIC] = gTypeIcon_Electric,
+    [TYPE_PSYCHIC] = gTypeIcon_Psychic,
+    [TYPE_ICE] = gTypeIcon_Ice,
+    [TYPE_DRAGON] = gTypeIcon_Dragon,
+    [TYPE_DARK] = gTypeIcon_Dark,
+};
+
+static const u16 *const sTypeIconPals[NUMBER_OF_MON_TYPES] =
+{
+    [TYPE_NORMAL] = gTypeIconPal_Normal,
+    [TYPE_FIGHTING] = gTypeIconPal_Fighting,
+    [TYPE_FLYING] = gTypeIconPal_Flying,
+    [TYPE_POISON] = gTypeIconPal_Poison,
+    [TYPE_GROUND] = gTypeIconPal_Ground,
+    [TYPE_ROCK] = gTypeIconPal_Rock,
+    [TYPE_BUG] = gTypeIconPal_Bug,
+    [TYPE_GHOST] = gTypeIconPal_Ghost,
+    [TYPE_STEEL] = gTypeIconPal_Steel,
+    [TYPE_FIRE] = gTypeIconPal_Fire,
+    [TYPE_WATER] = gTypeIconPal_Water,
+    [TYPE_GRASS] = gTypeIconPal_Grass,
+    [TYPE_ELECTRIC] = gTypeIconPal_Electric,
+    [TYPE_PSYCHIC] = gTypeIconPal_Psychic,
+    [TYPE_ICE] = gTypeIconPal_Ice,
+    [TYPE_DRAGON] = gTypeIconPal_Dragon,
+    [TYPE_DARK] = gTypeIconPal_Dark,
+};
+
+// EWRAM_DATA: this repo's linker script discards plain .data, so static mutable globals must live in EWRAM_DATA (see project gotchas).
+EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE};
+
+static const struct OamData sOamData_TypeIcon =
+{
+    .y = 0,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .mosaic = FALSE,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(32x16),
+    .x = 0,
+    .matrixNum = 0,
+    .size = SPRITE_SIZE(32x16),
+    .tileNum = 0,
+    .priority = 1,
+    .paletteNum = 0,
+    .affineParam = 0,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
+{
+    .tileTag = TAG_TYPE_ICON_TILE_1,
+    .paletteTag = TAG_TYPE_ICON_PAL_1,
+    .oam = &sOamData_TypeIcon,
+    .anims = gDummySpriteAnimTable,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
+{
+    .tileTag = TAG_TYPE_ICON_TILE_2,
+    .paletteTag = TAG_TYPE_ICON_PAL_2,
+    .oam = &sOamData_TypeIcon,
+    .anims = gDummySpriteAnimTable,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
 };
 
 static const struct SpriteTemplate sHealthboxPlayerSpriteTemplates[2] =
@@ -1046,6 +1132,74 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
     DestroySprite(&gSprites[gSprites[healthboxSpriteId].oam.affineParam]);
     DestroySprite(&gSprites[gSprites[healthboxSpriteId].hMain_HealthBarSpriteId]);
     DestroySprite(&gSprites[healthboxSpriteId]);
+    DestroyOpponentTypeIconSprites();
+}
+
+// Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
+#define TYPE_ICON_OPPONENT_X       44
+#define TYPE_ICON_OPPONENT_Y_ABOVE 5
+#define TYPE_ICON_DUAL_X_SPREAD    16
+
+static void DestroyOpponentTypeIconSprites(void)
+{
+    if (sOpponentTypeIconSpriteIds[0] != SPRITE_NONE)
+    {
+        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[0]]);
+        FreeSpriteTilesByTag(TAG_TYPE_ICON_TILE_1);
+        FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_1);
+        sOpponentTypeIconSpriteIds[0] = SPRITE_NONE;
+    }
+    if (sOpponentTypeIconSpriteIds[1] != SPRITE_NONE)
+    {
+        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[1]]);
+        FreeSpriteTilesByTag(TAG_TYPE_ICON_TILE_2);
+        FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_2);
+        sOpponentTypeIconSpriteIds[1] = SPRITE_NONE;
+    }
+}
+
+static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
+{
+    struct SpriteSheet sheet;
+    struct SpritePalette pal;
+
+    sheet.data = sTypeIconTiles[type];
+    sheet.size = 32 * 16 / 2; // 4bpp: (width * height) / 2 bytes
+    sheet.tag = (slot == 0) ? TAG_TYPE_ICON_TILE_1 : TAG_TYPE_ICON_TILE_2;
+    LoadSpriteSheet(&sheet);
+
+    pal.data = sTypeIconPals[type];
+    pal.tag = (slot == 0) ? TAG_TYPE_ICON_PAL_1 : TAG_TYPE_ICON_PAL_2;
+    LoadSpritePalette(&pal);
+
+    sOpponentTypeIconSpriteIds[slot] = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2, x, y, 0);
+}
+
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler)
+{
+    u16 species;
+    u8 type1, type2;
+    s16 y;
+
+    if (IsDoubleBattle())
+        return;
+
+    DestroyOpponentTypeIconSprites();
+
+    species = GetMonData(mon, MON_DATA_SPECIES);
+    type1 = gSpeciesInfo[species].types[0];
+    type2 = gSpeciesInfo[species].types[1];
+    y = TYPE_ICON_OPPONENT_Y_ABOVE;
+
+    if (type1 == type2)
+    {
+        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X, y);
+    }
+    else
+    {
+        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X - TYPE_ICON_DUAL_X_SPREAD, y);
+        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_SPREAD, y);
+    }
 }
 
 void DummyBattleInterfaceFunc(u8 healthboxSpriteId, bool8 isDoubleBattleBattlerOnly)
@@ -2229,6 +2383,8 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
             UpdateNickInHealthbox(healthboxSpriteId, mon);
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
+        if (elementId == HEALTHBOX_ALL)
+            UpdateOpponentTypeIconSprites(mon, battler);
     }
 }
 

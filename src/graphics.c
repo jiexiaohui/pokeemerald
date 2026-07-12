@@ -355,6 +355,42 @@ const u16 gBattleInterface_BallStatusBarPal[] = INCGFX_U16("graphics/battle_inte
 
 const u16 gBattleInterface_BallDisplayPal[] = INCGFX_U16("graphics/battle_interface/ball_display.png", ".gbapal");
 
+const u32 gTypeIcon_Normal[] = INCGFX_U32("graphics/battle_interface/type_icons/normal.png", ".4bpp");
+const u32 gTypeIcon_Fighting[] = INCGFX_U32("graphics/battle_interface/type_icons/fighting.png", ".4bpp");
+const u32 gTypeIcon_Flying[] = INCGFX_U32("graphics/battle_interface/type_icons/flying.png", ".4bpp");
+const u32 gTypeIcon_Poison[] = INCGFX_U32("graphics/battle_interface/type_icons/poison.png", ".4bpp");
+const u32 gTypeIcon_Ground[] = INCGFX_U32("graphics/battle_interface/type_icons/ground.png", ".4bpp");
+const u32 gTypeIcon_Rock[] = INCGFX_U32("graphics/battle_interface/type_icons/rock.png", ".4bpp");
+const u32 gTypeIcon_Bug[] = INCGFX_U32("graphics/battle_interface/type_icons/bug.png", ".4bpp");
+const u32 gTypeIcon_Ghost[] = INCGFX_U32("graphics/battle_interface/type_icons/ghost.png", ".4bpp");
+const u32 gTypeIcon_Steel[] = INCGFX_U32("graphics/battle_interface/type_icons/steel.png", ".4bpp");
+const u32 gTypeIcon_Fire[] = INCGFX_U32("graphics/battle_interface/type_icons/fire.png", ".4bpp");
+const u32 gTypeIcon_Water[] = INCGFX_U32("graphics/battle_interface/type_icons/water.png", ".4bpp");
+const u32 gTypeIcon_Grass[] = INCGFX_U32("graphics/battle_interface/type_icons/grass.png", ".4bpp");
+const u32 gTypeIcon_Electric[] = INCGFX_U32("graphics/battle_interface/type_icons/electric.png", ".4bpp");
+const u32 gTypeIcon_Psychic[] = INCGFX_U32("graphics/battle_interface/type_icons/psychic.png", ".4bpp");
+const u32 gTypeIcon_Ice[] = INCGFX_U32("graphics/battle_interface/type_icons/ice.png", ".4bpp");
+const u32 gTypeIcon_Dragon[] = INCGFX_U32("graphics/battle_interface/type_icons/dragon.png", ".4bpp");
+const u32 gTypeIcon_Dark[] = INCGFX_U32("graphics/battle_interface/type_icons/dark.png", ".4bpp");
+
+const u16 gTypeIconPal_Normal[] = INCGFX_U16("graphics/battle_interface/type_icons/normal.png", ".gbapal");
+const u16 gTypeIconPal_Fighting[] = INCGFX_U16("graphics/battle_interface/type_icons/fighting.png", ".gbapal");
+const u16 gTypeIconPal_Flying[] = INCGFX_U16("graphics/battle_interface/type_icons/flying.png", ".gbapal");
+const u16 gTypeIconPal_Poison[] = INCGFX_U16("graphics/battle_interface/type_icons/poison.png", ".gbapal");
+const u16 gTypeIconPal_Ground[] = INCGFX_U16("graphics/battle_interface/type_icons/ground.png", ".gbapal");
+const u16 gTypeIconPal_Rock[] = INCGFX_U16("graphics/battle_interface/type_icons/rock.png", ".gbapal");
+const u16 gTypeIconPal_Bug[] = INCGFX_U16("graphics/battle_interface/type_icons/bug.png", ".gbapal");
+const u16 gTypeIconPal_Ghost[] = INCGFX_U16("graphics/battle_interface/type_icons/ghost.png", ".gbapal");
+const u16 gTypeIconPal_Steel[] = INCGFX_U16("graphics/battle_interface/type_icons/steel.png", ".gbapal");
+const u16 gTypeIconPal_Fire[] = INCGFX_U16("graphics/battle_interface/type_icons/fire.png", ".gbapal");
+const u16 gTypeIconPal_Water[] = INCGFX_U16("graphics/battle_interface/type_icons/water.png", ".gbapal");
+const u16 gTypeIconPal_Grass[] = INCGFX_U16("graphics/battle_interface/type_icons/grass.png", ".gbapal");
+const u16 gTypeIconPal_Electric[] = INCGFX_U16("graphics/battle_interface/type_icons/electric.png", ".gbapal");
+const u16 gTypeIconPal_Psychic[] = INCGFX_U16("graphics/battle_interface/type_icons/psychic.png", ".gbapal");
+const u16 gTypeIconPal_Ice[] = INCGFX_U16("graphics/battle_interface/type_icons/ice.png", ".gbapal");
+const u16 gTypeIconPal_Dragon[] = INCGFX_U16("graphics/battle_interface/type_icons/dragon.png", ".gbapal");
+const u16 gTypeIconPal_Dark[] = INCGFX_U16("graphics/battle_interface/type_icons/dark.png", ".gbapal");
+
 const u8 gHealthboxElementsGfxTable[][32] = INCBIN_U8("graphics/battle_interface/hpbar.4bpp",
                                                   "graphics/battle_interface/expbar.4bpp",
                                                   "graphics/battle_interface/status.4bpp",
