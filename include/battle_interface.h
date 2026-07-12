@@ -44,11 +44,6 @@ enum
 
 #define TAG_STATUS_SUMMARY_BALLS_TILE   0xD714
 
-#define TAG_TYPE_ICON_TILE_1            0xD715
-#define TAG_TYPE_ICON_TILE_2            0xD716
-#define TAG_TYPE_ICON_PAL_1             0xD717
-#define TAG_TYPE_ICON_PAL_2             0xD718
-
 #define TAG_HEALTHBAR_PAL               TAG_HEALTHBAR_PLAYER1_TILE
 #define TAG_HEALTHBOX_PAL               TAG_HEALTHBOX_PLAYER1_TILE
 
@@ -70,7 +65,6 @@ enum
 
 u8 CreateBattlerHealthboxSprites(u8 battler);
 u8 CreateSafariPlayerHealthboxSprites(void);
-void PreloadOpponentTypeIconTileSlots(void);
 void SetBattleBarStruct(u8 battler, u8 healthboxSpriteId, s32 maxVal, s32 oldVal, s32 receivedValue);
 void SetHealthboxSpriteInvisible(u8 healthboxSpriteId);
 void SetHealthboxSpriteVisible(u8 healthboxSpriteId);
