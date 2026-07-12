@@ -1137,7 +1137,7 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 
 // Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
 #define TYPE_ICON_OPPONENT_X       44
-#define TYPE_ICON_OPPONENT_Y_ABOVE 5
+#define TYPE_ICON_OPPONENT_Y_ABOVE 8
 #define TYPE_ICON_DUAL_X_SPREAD    16
 
 static void DestroyOpponentTypeIconSprites(void)
