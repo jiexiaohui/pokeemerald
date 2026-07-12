@@ -1109,10 +1109,21 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 // This uses the BG (background) window system instead of a sprite - completely separate
 // hardware VRAM from the OBJ/sprite pool that every previous attempt was fighting over, so none
 // of those bug classes can apply here structurally. This is the same system the battle message
-// box, move-selection menu, and "VS" screens already use reliably. baseBlock values (0x400/
-// 0x408) are chosen well clear of every entry in sStandardBattleWindowTemplates (battle_bg.c),
-// which top out around 0x340; BG palette banks 8/9 are chosen clear of banks 0-7, which vanilla
-// already uses for the textbox/window border/battle environment/window text/arena text.
+// box, move-selection menu, and "VS" screens already use reliably.
+//
+// baseBlock: a BG's character (tile graphic) VRAM is only 16KB per charBaseIndex (512 tiles),
+// but BG0's own windows in sStandardBattleWindowTemplates (battle_bg.c) already use baseBlock
+// values well past that (up to 0x33F = 831) with no apparent issue - meaning BG0 legitimately
+// "borrows" space from what would otherwise be BG1's own character block (BG1's own graphic,
+// the battle platform, apparently doesn't use all 512 of its own tiles). The FIRST attempt at
+// this window used 0x400 (1024), reasoning "past everything else = free" - but 1024 tiles *
+// 32 bytes/tile = 32768 bytes = exactly the start of charBaseIndex 2, which is BG3's *actively
+// used* battle scenery graphic (DrawMainBattleBackground writes there) - so that value directly
+// overwrote the scenery tile data, corrupting far more of the screen than before. Correct
+// approach: pick a value INSIDE a gap between existing, already-proven-safe BG0 window ranges,
+// not "past the last one". Existing ranges (baseBlock to baseBlock+width*height-1) leave a
+// large, clearly unused gap from 0x1F8 (504) to 0x28F (655) - between B_WIN_ACTION_PROMPT's end
+// and B_WIN_PP's start - comfortably inside territory BG0 already safely borrows.
 #define TYPE_ICON_WINDOW_TOP        1 // tile row, near the top of the screen above the opponent
 #define TYPE_ICON_WINDOW_LEFT_SOLO  5 // tile column when only one type icon is shown
 #define TYPE_ICON_WINDOW_LEFT_DUAL1 4 // left icon's column when showing two
@@ -1121,8 +1132,8 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 #define TYPE_ICON_WINDOW_HEIGHT     2 // tiles (16px, matches the icon graphic height)
 #define TYPE_ICON_BG_PALETTE_1      8
 #define TYPE_ICON_BG_PALETTE_2      9
-#define TYPE_ICON_BASE_BLOCK_1      0x400
-#define TYPE_ICON_BASE_BLOCK_2      0x408
+#define TYPE_ICON_BASE_BLOCK_1      0x200 // 512 - inside the 504-655 gap, 8 tiles: 512-519
+#define TYPE_ICON_BASE_BLOCK_2      0x210 // 528 - same gap, 8 tiles: 528-535
 
 static const struct WindowTemplate sOpponentTypeIconWindowTemplate1 =
 {
