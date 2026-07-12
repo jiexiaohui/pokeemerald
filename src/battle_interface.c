@@ -189,8 +189,7 @@ static void MoveBattleBarGraphically(u8, u8);
 static u8 CalcBarFilledPixels(s32, s32, s32, s32 *, u8 *, u8);
 static void Debug_TestHealthBar_Helper(struct TestingBar *, s32 *, u16 *);
 static void DestroyOpponentTypeIconSprites(void);
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 healthboxSpriteId);
-static void SpriteCB_OpponentTypeIcon(struct Sprite *);
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon);
 
 static const struct OamData sOamData_64x32 =
 {
@@ -291,7 +290,7 @@ static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
     .anims = gDummySpriteAnimTable,
     .images = sTypeIconDummyImage,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCB_OpponentTypeIcon,
+    .callback = SpriteCallbackDummy,
 };
 
 static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
@@ -302,7 +301,7 @@ static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
     .anims = gDummySpriteAnimTable,
     .images = sTypeIconDummyImage,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCB_OpponentTypeIcon,
+    .callback = SpriteCallbackDummy,
 };
 
 static const struct SpriteTemplate sHealthboxPlayerSpriteTemplates[2] =
@@ -1149,18 +1148,22 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 }
 
 // Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
-// Icons are attached to the healthbox sprite: SpriteCB_OpponentTypeIcon tracks its position and
-// invisible flag every frame, so the icons slide in with the healthbox and don't appear until
-// it does, instead of being independently positioned/timed.
-#define TYPE_ICON_X_OFFSET         0   // relative to the healthbox sprite's own x (single icon)
-#define TYPE_ICON_Y_OFFSET         -22 // relative to the healthbox sprite's own y (above it)
+//
+// Previously these icons tracked the healthbox sprite's position/visibility every frame via a
+// callback (reading gSprites[healthboxSpriteId].x/y/invisible each frame), so they'd slide in
+// with the healthbox. That was the actual bug: every fix aimed at VRAM/tile allocation left the
+// exact same symptom completely unchanged (the icon rendering as garbled healthbox graphics and
+// bouncing in sync with the player's own Pokemon during move selection - i.e. tracking the
+// wrong sprite), which never made sense for a tile/palette allocation problem, only for a bad
+// sprite reference. Root cause of *why* the reference pointed at the wrong sprite was never
+// pinned down without live debugging, but removing the indirection entirely removes the whole
+// bug class: fixed absolute position, set once at creation, no per-frame dependency on another
+// sprite's live state at all. Costs the "slides in with the healthbox" / "hides until the
+// healthbox is visible" niceties.
+#define TYPE_ICON_OPPONENT_X       44 // matches InitBattlerHealthboxCoords' singles opponent x
+#define TYPE_ICON_OPPONENT_Y       8  // above the healthbox (which sits at y=30)
 #define TYPE_ICON_DUAL_X_OFFSET_1  -17 // left icon: 1px further out, so a 1px gap remains between the two icons
 #define TYPE_ICON_DUAL_X_OFFSET_2  16  // right icon
-
-// sprite->data usage for the type icon sprites
-#define tIconHealthboxSpriteId data[0]
-#define tIconXOffset           data[1]
-#define tIconYOffset           data[2]
 
 #define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
 
@@ -1205,45 +1208,7 @@ static void DestroyOpponentTypeIconSprites(void)
     }
 }
 
-// Defensive: verify healthboxSpriteId still legitimately belongs to a live, non-player
-// battler's healthbox before trusting its position/visibility. If our stored reference ever
-// goes stale (e.g. the healthbox sprite pool slot got destroyed and reused for something else
-// - which is our leading suspect for the "icon tracks/bounces with my own Pokemon and shows
-// wrong graphics" report, though not fully root-caused), this fails safe (icon just hides)
-// instead of rendering whatever now occupies that slot.
-static bool8 IsValidOpponentHealthboxSpriteId(u8 healthboxSpriteId)
-{
-    u8 i;
-
-    if (!gSprites[healthboxSpriteId].inUse)
-        return FALSE;
-
-    for (i = 0; i < gBattlersCount; i++)
-    {
-        if (gHealthboxSpriteIds[i] == healthboxSpriteId)
-            return (GetBattlerSide(i) != B_SIDE_PLAYER);
-    }
-    return FALSE;
-}
-
-static void SpriteCB_OpponentTypeIcon(struct Sprite *sprite)
-{
-    u8 healthboxSpriteId = sprite->tIconHealthboxSpriteId;
-
-    if (!IsValidOpponentHealthboxSpriteId(healthboxSpriteId))
-    {
-        sprite->invisible = TRUE;
-        return;
-    }
-
-    // Include x2/y2: some effects (e.g. DoBounceEffect) animate a sprite via these secondary
-    // offsets rather than x/y directly.
-    sprite->x = gSprites[healthboxSpriteId].x + gSprites[healthboxSpriteId].x2 + sprite->tIconXOffset;
-    sprite->y = gSprites[healthboxSpriteId].y + gSprites[healthboxSpriteId].y2 + sprite->tIconYOffset;
-    sprite->invisible = gSprites[healthboxSpriteId].invisible;
-}
-
-static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId, s16 xOffset, s16 yOffset)
+static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
 {
     struct SpritePalette pal;
     u16 tileStart = sOpponentTypeIconTileBase + slot * TYPE_ICON_TILE_COUNT;
@@ -1256,22 +1221,17 @@ static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId,
     pal.tag = (slot == 0) ? TAG_TYPE_ICON_PAL_1 : TAG_TYPE_ICON_PAL_2;
     LoadSpritePalette(&pal);
 
-    spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2,
-                             gSprites[healthboxSpriteId].x + xOffset, gSprites[healthboxSpriteId].y + yOffset, 0);
+    spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2, x, y, 0);
     if (spriteId == MAX_SPRITES)
         return; // sprite pool full; skip showing the icon rather than touch an invalid slot
 
     // CreateSprite() auto-allocated a throwaway tile via the dummy image (TAG_NONE mode);
     // point this sprite at our own reserved tiles instead.
     gSprites[spriteId].oam.tileNum = tileStart;
-    gSprites[spriteId].tIconHealthboxSpriteId = healthboxSpriteId;
-    gSprites[spriteId].tIconXOffset = xOffset;
-    gSprites[spriteId].tIconYOffset = yOffset;
-    gSprites[spriteId].invisible = gSprites[healthboxSpriteId].invisible;
     sOpponentTypeIconSpriteIds[slot] = spriteId;
 }
 
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 healthboxSpriteId)
+static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
 {
     u16 species;
     u8 type1, type2;
@@ -1287,12 +1247,12 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 healthboxSprit
 
     if (type1 == type2)
     {
-        CreateOpponentTypeIconSprite(0, type1, healthboxSpriteId, TYPE_ICON_X_OFFSET, TYPE_ICON_Y_OFFSET);
+        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X, TYPE_ICON_OPPONENT_Y);
     }
     else
     {
-        CreateOpponentTypeIconSprite(0, type1, healthboxSpriteId, TYPE_ICON_DUAL_X_OFFSET_1, TYPE_ICON_Y_OFFSET);
-        CreateOpponentTypeIconSprite(1, type2, healthboxSpriteId, TYPE_ICON_DUAL_X_OFFSET_2, TYPE_ICON_Y_OFFSET);
+        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_1, TYPE_ICON_OPPONENT_Y);
+        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_2, TYPE_ICON_OPPONENT_Y);
     }
 }
 
@@ -2478,7 +2438,7 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
         if (elementId == HEALTHBOX_ALL)
-            UpdateOpponentTypeIconSprites(mon, healthboxSpriteId);
+            UpdateOpponentTypeIconSprites(mon);
     }
 }
 
