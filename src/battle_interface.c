@@ -253,6 +253,7 @@ static const u16 *const sTypeIconPals[NUMBER_OF_MON_TYPES] =
 
 // EWRAM_DATA: this repo's linker script discards plain .data, so static mutable globals must live in EWRAM_DATA (see project gotchas).
 EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE};
+EWRAM_DATA static u16 sOpponentTypeIconTileBase = 0;
 
 static const struct OamData sOamData_TypeIcon =
 {
@@ -271,24 +272,35 @@ static const struct OamData sOamData_TypeIcon =
     .affineParam = 0,
 };
 
+// Dummy 1-tile placeholder: with .tileTag = TAG_NONE, CreateSprite() auto-allocates tiles
+// sized to this image via the normal dynamic allocator, then we immediately override
+// oam.tileNum below to point into our own reserved region instead (see
+// PreloadOpponentTypeIconTileSlots). We don't use a tag-based tile sheet at all here, so that
+// vanilla's hardcoded, allocator-untracked VRAM offsets (see comment there) can't reach us
+// regardless of allocation order.
+static const struct SpriteFrameImage sTypeIconDummyImage[] =
+{
+    { .data = (const u8 *)gTypeIcon_Normal, .size = TILE_SIZE_4BPP },
+};
+
 static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
 {
-    .tileTag = TAG_TYPE_ICON_TILE_1,
+    .tileTag = TAG_NONE,
     .paletteTag = TAG_TYPE_ICON_PAL_1,
     .oam = &sOamData_TypeIcon,
     .anims = gDummySpriteAnimTable,
-    .images = NULL,
+    .images = sTypeIconDummyImage,
     .affineAnims = gDummySpriteAffineAnimTable,
     .callback = SpriteCB_OpponentTypeIcon,
 };
 
 static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
 {
-    .tileTag = TAG_TYPE_ICON_TILE_2,
+    .tileTag = TAG_NONE,
     .paletteTag = TAG_TYPE_ICON_PAL_2,
     .oam = &sOamData_TypeIcon,
     .anims = gDummySpriteAnimTable,
-    .images = NULL,
+    .images = sTypeIconDummyImage,
     .affineAnims = gDummySpriteAffineAnimTable,
     .callback = SpriteCB_OpponentTypeIcon,
 };
@@ -1152,25 +1164,29 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 
 #define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
 
-// Reserves VRAM for both icon tile slots once, at the very start of battle (before any
-// healthbox is created). This must happen before CreateBattlerHealthboxSprites() runs for
-// any battler: the player's own healthbox writes its HP digits via a hardcoded VRAM offset
-// from its own tileNum (UpdateHpTextInHealthbox, "+0x820" for singles) that isn't tracked by
-// the generic tile allocator. If our icon tiles were allocated afterward, dynamically, they
-// could land exactly in that blind spot and get silently overwritten the moment the player's
-// Pokemon is sent out. Claiming our tiles first (so they sit before the player's healthbox in
-// VRAM) makes that collision impossible, since the offset only ever reaches forward.
+// Reserves 16 tiles of VRAM for both icon slots by extending gReservedSpriteTileCount, at the
+// very start of battle (before ResetSpriteData()'s caller does anything else). This must
+// happen before anything else touches sprite tiles this battle.
+//
+// The player's own healthbox writes its HP digits and nickname text via hardcoded VRAM offsets
+// computed from its own tileNum (UpdateHpTextInHealthbox "+0x820", UpdateNickInHealthbox
+// "+0x800" for singles) that are NOT tracked by the generic tile allocator - vanilla just
+// relies on nothing else having claimed that particular spot by the time it writes there.
+// Earlier attempts allocated our icon tiles dynamically (LoadSpriteSheet) right before the
+// player's own healthbox was created, expecting that to keep us safely "before" those offsets
+// in VRAM - but that still corrupted the player's healthbox, meaning some other allocation was
+// landing between us and it, so "just go first" wasn't actually enough.
+//
+// Bumping gReservedSpriteTileCount instead formally excludes our 16 tiles from the dynamic
+// allocator's scan range for the rest of the battle, no matter what else gets allocated or in
+// what order - not just "probably first", but structurally impossible for anything else
+// (dynamic or otherwise) to land on top of us. gReservedSpriteTileCount resets to 0 the next
+// time ResetSpriteData() runs (next battle / returning to the overworld), so nothing needs to
+// be manually restored afterward.
 void PreloadOpponentTypeIconTileSlots(void)
 {
-    struct SpriteSheet sheet;
-
-    sheet.data = sTypeIconTiles[TYPE_NORMAL];
-    sheet.size = TYPE_ICON_TILE_COUNT * TILE_SIZE_4BPP;
-    sheet.tag = TAG_TYPE_ICON_TILE_1;
-    LoadSpriteSheet(&sheet);
-
-    sheet.tag = TAG_TYPE_ICON_TILE_2;
-    LoadSpriteSheet(&sheet);
+    sOpponentTypeIconTileBase = gReservedSpriteTileCount;
+    gReservedSpriteTileCount += TYPE_ICON_TILE_COUNT * 2;
 }
 
 static void DestroyOpponentTypeIconSprites(void)
@@ -1201,12 +1217,10 @@ static void SpriteCB_OpponentTypeIcon(struct Sprite *sprite)
 static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId, s16 xOffset, s16 yOffset)
 {
     struct SpritePalette pal;
-    u16 tileTag = (slot == 0) ? TAG_TYPE_ICON_TILE_1 : TAG_TYPE_ICON_TILE_2;
-    u16 tileStart = GetSpriteTileStartByTag(tileTag);
+    u16 tileStart = sOpponentTypeIconTileBase + slot * TYPE_ICON_TILE_COUNT;
     u8 spriteId;
 
-    // Tiles were already reserved by PreloadOpponentTypeIconTileSlots(); just overwrite the
-    // pixel content in place rather than freeing/reallocating (see comment there for why).
+    // Write directly into our reserved region (see PreloadOpponentTypeIconTileSlots).
     CpuCopy16(sTypeIconTiles[type], (u8 *)(OBJ_VRAM0 + TILE_SIZE_4BPP * tileStart), TYPE_ICON_TILE_COUNT * TILE_SIZE_4BPP);
 
     pal.data = sTypeIconPals[type];
@@ -1215,6 +1229,9 @@ static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId,
 
     spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2,
                              gSprites[healthboxSpriteId].x + xOffset, gSprites[healthboxSpriteId].y + yOffset, 0);
+    // CreateSprite() auto-allocated a throwaway tile via the dummy image (TAG_NONE mode);
+    // point this sprite at our own reserved tiles instead.
+    gSprites[spriteId].oam.tileNum = tileStart;
     gSprites[spriteId].tIconHealthboxSpriteId = healthboxSpriteId;
     gSprites[spriteId].tIconXOffset = xOffset;
     gSprites[spriteId].tIconYOffset = yOffset;
