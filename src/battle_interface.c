@@ -1205,12 +1205,41 @@ static void DestroyOpponentTypeIconSprites(void)
     }
 }
 
+// Defensive: verify healthboxSpriteId still legitimately belongs to a live, non-player
+// battler's healthbox before trusting its position/visibility. If our stored reference ever
+// goes stale (e.g. the healthbox sprite pool slot got destroyed and reused for something else
+// - which is our leading suspect for the "icon tracks/bounces with my own Pokemon and shows
+// wrong graphics" report, though not fully root-caused), this fails safe (icon just hides)
+// instead of rendering whatever now occupies that slot.
+static bool8 IsValidOpponentHealthboxSpriteId(u8 healthboxSpriteId)
+{
+    u8 i;
+
+    if (!gSprites[healthboxSpriteId].inUse)
+        return FALSE;
+
+    for (i = 0; i < gBattlersCount; i++)
+    {
+        if (gHealthboxSpriteIds[i] == healthboxSpriteId)
+            return (GetBattlerSide(i) != B_SIDE_PLAYER);
+    }
+    return FALSE;
+}
+
 static void SpriteCB_OpponentTypeIcon(struct Sprite *sprite)
 {
     u8 healthboxSpriteId = sprite->tIconHealthboxSpriteId;
 
-    sprite->x = gSprites[healthboxSpriteId].x + sprite->tIconXOffset;
-    sprite->y = gSprites[healthboxSpriteId].y + sprite->tIconYOffset;
+    if (!IsValidOpponentHealthboxSpriteId(healthboxSpriteId))
+    {
+        sprite->invisible = TRUE;
+        return;
+    }
+
+    // Include x2/y2: some effects (e.g. DoBounceEffect) animate a sprite via these secondary
+    // offsets rather than x/y directly.
+    sprite->x = gSprites[healthboxSpriteId].x + gSprites[healthboxSpriteId].x2 + sprite->tIconXOffset;
+    sprite->y = gSprites[healthboxSpriteId].y + gSprites[healthboxSpriteId].y2 + sprite->tIconYOffset;
     sprite->invisible = gSprites[healthboxSpriteId].invisible;
 }
 
@@ -1229,6 +1258,9 @@ static void CreateOpponentTypeIconSprite(u8 slot, u8 type, u8 healthboxSpriteId,
 
     spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2,
                              gSprites[healthboxSpriteId].x + xOffset, gSprites[healthboxSpriteId].y + yOffset, 0);
+    if (spriteId == MAX_SPRITES)
+        return; // sprite pool full; skip showing the icon rather than touch an invalid slot
+
     // CreateSprite() auto-allocated a throwaway tile via the dummy image (TAG_NONE mode);
     // point this sprite at our own reserved tiles instead.
     gSprites[spriteId].oam.tileNum = tileStart;
