@@ -251,58 +251,7 @@ static const u16 *const sTypeIconPals[NUMBER_OF_MON_TYPES] =
 };
 
 // EWRAM_DATA: this repo's linker script discards plain .data, so static mutable globals must live in EWRAM_DATA (see project gotchas).
-EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE};
-EWRAM_DATA static u16 sOpponentTypeIconTileBase = 0;
-
-static const struct OamData sOamData_TypeIcon =
-{
-    .y = 0,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = FALSE,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(32x16),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(32x16),
-    .tileNum = 0,
-    .priority = 1,
-    .paletteNum = 0,
-    .affineParam = 0,
-};
-
-// Dummy 1-tile placeholder: with .tileTag = TAG_NONE, CreateSprite() auto-allocates tiles
-// sized to this image via the normal dynamic allocator, then we immediately override
-// oam.tileNum below to point into our own reserved region instead (see
-// PreloadOpponentTypeIconTileSlots). We don't use a tag-based tile sheet at all here, so that
-// vanilla's hardcoded, allocator-untracked VRAM offsets (see comment there) can't reach us
-// regardless of allocation order.
-static const struct SpriteFrameImage sTypeIconDummyImage[] =
-{
-    { .data = (const u8 *)gTypeIcon_Normal, .size = TILE_SIZE_4BPP },
-};
-
-static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
-{
-    .tileTag = TAG_NONE,
-    .paletteTag = TAG_TYPE_ICON_PAL_1,
-    .oam = &sOamData_TypeIcon,
-    .anims = gDummySpriteAnimTable,
-    .images = sTypeIconDummyImage,
-    .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
-};
-
-static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
-{
-    .tileTag = TAG_NONE,
-    .paletteTag = TAG_TYPE_ICON_PAL_2,
-    .oam = &sOamData_TypeIcon,
-    .anims = gDummySpriteAnimTable,
-    .images = sTypeIconDummyImage,
-    .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
-};
+EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {WINDOW_NONE, WINDOW_NONE};
 
 static const struct SpriteTemplate sHealthboxPlayerSpriteTemplates[2] =
 {
@@ -1149,86 +1098,89 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 
 // Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
 //
-// Previously these icons tracked the healthbox sprite's position/visibility every frame via a
-// callback (reading gSprites[healthboxSpriteId].x/y/invisible each frame), so they'd slide in
-// with the healthbox. That was the actual bug: every fix aimed at VRAM/tile allocation left the
-// exact same symptom completely unchanged (the icon rendering as garbled healthbox graphics and
-// bouncing in sync with the player's own Pokemon during move selection - i.e. tracking the
-// wrong sprite), which never made sense for a tile/palette allocation problem, only for a bad
-// sprite reference. Root cause of *why* the reference pointed at the wrong sprite was never
-// pinned down without live debugging, but removing the indirection entirely removes the whole
-// bug class: fixed absolute position, set once at creation, no per-frame dependency on another
-// sprite's live state at all. Costs the "slides in with the healthbox" / "hides until the
-// healthbox is visible" niceties.
-#define TYPE_ICON_OPPONENT_X       44 // matches InitBattlerHealthboxCoords' singles opponent x
-#define TYPE_ICON_OPPONENT_Y       8  // above the healthbox (which sits at y=30)
-#define TYPE_ICON_DUAL_X_OFFSET_1  -17 // left icon: 1px further out, so a 1px gap remains between the two icons
-#define TYPE_ICON_DUAL_X_OFFSET_2  16  // right icon
-
-#define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
-
-// Reserves 16 tiles of VRAM for both icon slots by extending gReservedSpriteTileCount, at the
-// very start of battle (before ResetSpriteData()'s caller does anything else). This must
-// happen before anything else touches sprite tiles this battle.
+// Five straight sprite/OBJ-VRAM-based attempts (dynamic tile allocation timed early, formally
+// reserving tiles via gReservedSpriteTileCount, per-frame healthbox position/visibility
+// tracking, defensive validation of that tracking, a real tile-count unit bug) all left the
+// same fundamental symptom: garbled healthbox-looking graphics and the icon behaving like it
+// was aliased with some other live sprite (bouncing with the player's own Pokemon, later
+// showing the player's own live HP bar updates). Root cause was never conclusively pinned down
+// without a live memory/OAM viewer.
 //
-// The player's own healthbox writes its HP digits and nickname text via hardcoded VRAM offsets
-// computed from its own tileNum (UpdateHpTextInHealthbox "+0x820", UpdateNickInHealthbox
-// "+0x800" for singles) that are NOT tracked by the generic tile allocator - vanilla just
-// relies on nothing else having claimed that particular spot by the time it writes there.
-// Earlier attempts allocated our icon tiles dynamically (LoadSpriteSheet) right before the
-// player's own healthbox was created, expecting that to keep us safely "before" those offsets
-// in VRAM - but that still corrupted the player's healthbox, meaning some other allocation was
-// landing between us and it, so "just go first" wasn't actually enough.
-//
-// Bumping gReservedSpriteTileCount instead formally excludes our 16 tiles from the dynamic
-// allocator's scan range for the rest of the battle, no matter what else gets allocated or in
-// what order - not just "probably first", but structurally impossible for anything else
-// (dynamic or otherwise) to land on top of us. gReservedSpriteTileCount resets to 0 the next
-// time ResetSpriteData() runs (next battle / returning to the overworld), so nothing needs to
-// be manually restored afterward.
-void PreloadOpponentTypeIconTileSlots(void)
+// This uses the BG (background) window system instead of a sprite - completely separate
+// hardware VRAM from the OBJ/sprite pool that every previous attempt was fighting over, so none
+// of those bug classes can apply here structurally. This is the same system the battle message
+// box, move-selection menu, and "VS" screens already use reliably. baseBlock values (0x400/
+// 0x408) are chosen well clear of every entry in sStandardBattleWindowTemplates (battle_bg.c),
+// which top out around 0x340; BG palette banks 8/9 are chosen clear of banks 0-7, which vanilla
+// already uses for the textbox/window border/battle environment/window text/arena text.
+#define TYPE_ICON_WINDOW_TOP        1 // tile row, near the top of the screen above the opponent
+#define TYPE_ICON_WINDOW_LEFT_SOLO  5 // tile column when only one type icon is shown
+#define TYPE_ICON_WINDOW_LEFT_DUAL1 4 // left icon's column when showing two
+#define TYPE_ICON_WINDOW_LEFT_DUAL2 8 // right icon's column when showing two
+#define TYPE_ICON_WINDOW_WIDTH      4 // tiles (32px, matches the icon graphic width)
+#define TYPE_ICON_WINDOW_HEIGHT     2 // tiles (16px, matches the icon graphic height)
+#define TYPE_ICON_BG_PALETTE_1      8
+#define TYPE_ICON_BG_PALETTE_2      9
+#define TYPE_ICON_BASE_BLOCK_1      0x400
+#define TYPE_ICON_BASE_BLOCK_2      0x408
+
+static const struct WindowTemplate sOpponentTypeIconWindowTemplate1 =
 {
-    sOpponentTypeIconTileBase = gReservedSpriteTileCount;
-    gReservedSpriteTileCount += TYPE_ICON_TILE_COUNT * 2;
-}
+    .bg = 0,
+    .tilemapLeft = TYPE_ICON_WINDOW_LEFT_SOLO,
+    .tilemapTop = TYPE_ICON_WINDOW_TOP,
+    .width = TYPE_ICON_WINDOW_WIDTH,
+    .height = TYPE_ICON_WINDOW_HEIGHT,
+    .paletteNum = TYPE_ICON_BG_PALETTE_1,
+    .baseBlock = TYPE_ICON_BASE_BLOCK_1,
+};
+
+static const struct WindowTemplate sOpponentTypeIconWindowTemplate2 =
+{
+    .bg = 0,
+    .tilemapLeft = TYPE_ICON_WINDOW_LEFT_DUAL2,
+    .tilemapTop = TYPE_ICON_WINDOW_TOP,
+    .width = TYPE_ICON_WINDOW_WIDTH,
+    .height = TYPE_ICON_WINDOW_HEIGHT,
+    .paletteNum = TYPE_ICON_BG_PALETTE_2,
+    .baseBlock = TYPE_ICON_BASE_BLOCK_2,
+};
 
 static void DestroyOpponentTypeIconSprites(void)
 {
-    if (sOpponentTypeIconSpriteIds[0] != SPRITE_NONE)
+    if (sOpponentTypeIconSpriteIds[0] != WINDOW_NONE)
     {
-        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[0]]);
-        FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_1);
-        sOpponentTypeIconSpriteIds[0] = SPRITE_NONE;
+        ClearWindowTilemap(sOpponentTypeIconSpriteIds[0]);
+        CopyWindowToVram(sOpponentTypeIconSpriteIds[0], COPYWIN_FULL);
+        RemoveWindow(sOpponentTypeIconSpriteIds[0]);
+        sOpponentTypeIconSpriteIds[0] = WINDOW_NONE;
     }
-    if (sOpponentTypeIconSpriteIds[1] != SPRITE_NONE)
+    if (sOpponentTypeIconSpriteIds[1] != WINDOW_NONE)
     {
-        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[1]]);
-        FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_2);
-        sOpponentTypeIconSpriteIds[1] = SPRITE_NONE;
+        ClearWindowTilemap(sOpponentTypeIconSpriteIds[1]);
+        CopyWindowToVram(sOpponentTypeIconSpriteIds[1], COPYWIN_FULL);
+        RemoveWindow(sOpponentTypeIconSpriteIds[1]);
+        sOpponentTypeIconSpriteIds[1] = WINDOW_NONE;
     }
 }
 
-static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
+static void CreateOpponentTypeIconWindow(u8 slot, u8 type, u8 tilemapLeft)
 {
-    struct SpritePalette pal;
-    u16 tileStart = sOpponentTypeIconTileBase + slot * TYPE_ICON_TILE_COUNT;
-    u8 spriteId;
+    struct WindowTemplate template = (slot == 0) ? sOpponentTypeIconWindowTemplate1 : sOpponentTypeIconWindowTemplate2;
+    u8 windowId;
 
-    // Write directly into our reserved region (see PreloadOpponentTypeIconTileSlots).
-    CpuCopy16(sTypeIconTiles[type], (u8 *)(OBJ_VRAM0 + TILE_SIZE_4BPP * tileStart), TYPE_ICON_TILE_COUNT * TILE_SIZE_4BPP);
+    template.tilemapLeft = tilemapLeft;
+    windowId = AddWindow(&template);
+    if (windowId == WINDOW_NONE)
+        return;
 
-    pal.data = sTypeIconPals[type];
-    pal.tag = (slot == 0) ? TAG_TYPE_ICON_PAL_1 : TAG_TYPE_ICON_PAL_2;
-    LoadSpritePalette(&pal);
+    LoadPalette(sTypeIconPals[type], BG_PLTT_ID(template.paletteNum), PLTT_SIZE_4BPP);
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(0));
+    BlitBitmapToWindow(windowId, (const u8 *)sTypeIconTiles[type], 0, 0, 32, 16);
+    PutWindowTilemap(windowId);
+    CopyWindowToVram(windowId, COPYWIN_FULL);
 
-    spriteId = CreateSprite(slot == 0 ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2, x, y, 0);
-    if (spriteId == MAX_SPRITES)
-        return; // sprite pool full; skip showing the icon rather than touch an invalid slot
-
-    // CreateSprite() auto-allocated a throwaway tile via the dummy image (TAG_NONE mode);
-    // point this sprite at our own reserved tiles instead.
-    gSprites[spriteId].oam.tileNum = tileStart;
-    sOpponentTypeIconSpriteIds[slot] = spriteId;
+    sOpponentTypeIconSpriteIds[slot] = windowId;
 }
 
 static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
@@ -1247,12 +1199,12 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
 
     if (type1 == type2)
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X, TYPE_ICON_OPPONENT_Y);
+        CreateOpponentTypeIconWindow(0, type1, TYPE_ICON_WINDOW_LEFT_SOLO);
     }
     else
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_1, TYPE_ICON_OPPONENT_Y);
-        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_2, TYPE_ICON_OPPONENT_Y);
+        CreateOpponentTypeIconWindow(0, type1, TYPE_ICON_WINDOW_LEFT_DUAL1);
+        CreateOpponentTypeIconWindow(1, type2, TYPE_ICON_WINDOW_LEFT_DUAL2);
     }
 }
 

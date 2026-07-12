@@ -676,7 +676,6 @@ static void CB2_InitBattleInternal(void)
     InitBattleBgsVideo();
     LoadBattleTextboxAndBackground();
     ResetSpriteData();
-    PreloadOpponentTypeIconTileSlots(); // must run before anything else can claim sprite tiles this battle - see comment on the function
     ResetTasks();
     DrawBattleEntryBackground();
     FreeAllSpritePalettes();
