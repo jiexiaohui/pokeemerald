@@ -836,6 +836,7 @@ bool8 BattleInitAllSprites(u8 *state1, u8 *battler)
     {
     case 0:
         ClearSpritesBattlerHealthboxAnimData();
+        PreloadOpponentTypeIconTileSlots();
         (*state1)++;
         break;
     case 1:

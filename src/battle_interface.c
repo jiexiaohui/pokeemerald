@@ -1138,21 +1138,43 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 // Nuzlocke QoL: type icons shown above the opposing Pokemon's healthbox (singles battles only).
 #define TYPE_ICON_OPPONENT_X       44
 #define TYPE_ICON_OPPONENT_Y_ABOVE 8
-#define TYPE_ICON_DUAL_X_SPREAD    16
+#define TYPE_ICON_DUAL_X_OFFSET_1  17 // left icon: 1px further out, so a 1px gap remains between the two icons
+#define TYPE_ICON_DUAL_X_OFFSET_2  16 // right icon
+
+#define TYPE_ICON_TILE_COUNT (32 * 16 / TILE_SIZE_4BPP) // 8 tiles
+
+// Reserves VRAM for both icon tile slots once, at the very start of battle (before any
+// healthbox is created). This must happen before CreateBattlerHealthboxSprites() runs for
+// any battler: the player's own healthbox writes its HP digits via a hardcoded VRAM offset
+// from its own tileNum (UpdateHpTextInHealthbox, "+0x820" for singles) that isn't tracked by
+// the generic tile allocator. If our icon tiles were allocated afterward, dynamically, they
+// could land exactly in that blind spot and get silently overwritten the moment the player's
+// Pokemon is sent out. Claiming our tiles first (so they sit before the player's healthbox in
+// VRAM) makes that collision impossible, since the offset only ever reaches forward.
+void PreloadOpponentTypeIconTileSlots(void)
+{
+    struct SpriteSheet sheet;
+
+    sheet.data = sTypeIconTiles[TYPE_NORMAL];
+    sheet.size = TYPE_ICON_TILE_COUNT * TILE_SIZE_4BPP;
+    sheet.tag = TAG_TYPE_ICON_TILE_1;
+    LoadSpriteSheet(&sheet);
+
+    sheet.tag = TAG_TYPE_ICON_TILE_2;
+    LoadSpriteSheet(&sheet);
+}
 
 static void DestroyOpponentTypeIconSprites(void)
 {
     if (sOpponentTypeIconSpriteIds[0] != SPRITE_NONE)
     {
         DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[0]]);
-        FreeSpriteTilesByTag(TAG_TYPE_ICON_TILE_1);
         FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_1);
         sOpponentTypeIconSpriteIds[0] = SPRITE_NONE;
     }
     if (sOpponentTypeIconSpriteIds[1] != SPRITE_NONE)
     {
         DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[1]]);
-        FreeSpriteTilesByTag(TAG_TYPE_ICON_TILE_2);
         FreeSpritePaletteByTag(TAG_TYPE_ICON_PAL_2);
         sOpponentTypeIconSpriteIds[1] = SPRITE_NONE;
     }
@@ -1160,13 +1182,13 @@ static void DestroyOpponentTypeIconSprites(void)
 
 static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x, s16 y)
 {
-    struct SpriteSheet sheet;
     struct SpritePalette pal;
+    u16 tileTag = (slot == 0) ? TAG_TYPE_ICON_TILE_1 : TAG_TYPE_ICON_TILE_2;
+    u16 tileStart = GetSpriteTileStartByTag(tileTag);
 
-    sheet.data = sTypeIconTiles[type];
-    sheet.size = 32 * 16 / 2; // 4bpp: (width * height) / 2 bytes
-    sheet.tag = (slot == 0) ? TAG_TYPE_ICON_TILE_1 : TAG_TYPE_ICON_TILE_2;
-    LoadSpriteSheet(&sheet);
+    // Tiles were already reserved by PreloadOpponentTypeIconTileSlots(); just overwrite the
+    // pixel content in place rather than freeing/reallocating (see comment there for why).
+    CpuCopy16(sTypeIconTiles[type], (u8 *)(OBJ_VRAM0 + TILE_SIZE_4BPP * tileStart), TYPE_ICON_TILE_COUNT * TILE_SIZE_4BPP);
 
     pal.data = sTypeIconPals[type];
     pal.tag = (slot == 0) ? TAG_TYPE_ICON_PAL_1 : TAG_TYPE_ICON_PAL_2;
@@ -1197,8 +1219,8 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon, u8 battler)
     }
     else
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X - TYPE_ICON_DUAL_X_SPREAD, y);
-        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_SPREAD, y);
+        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_OPPONENT_X - TYPE_ICON_DUAL_X_OFFSET_1, y);
+        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_OPPONENT_X + TYPE_ICON_DUAL_X_OFFSET_2, y);
     }
 }
 
