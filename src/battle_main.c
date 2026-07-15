@@ -1962,8 +1962,9 @@ static void SpriteCB_UnusedBattleInit_Main(struct Sprite *sprite)
     }
 }
 
-#define TRAINER_LEVEL_SCALE_MIN_PERCENT 5  // how far under the level cap, at minimum
-#define TRAINER_LEVEL_SCALE_MAX_PERCENT 15 // how far under the level cap, at most
+#define TRAINER_LEVEL_SCALE_MIN_PERCENT 15 // how far under the level cap, at minimum
+#define TRAINER_LEVEL_SCALE_MAX_PERCENT 35 // how far under the level cap, at most
+// At a level 15 cap (before the 1st badge) this produces a level 10-13 range.
 
 // Nuzlocke QoL: every trainer except gym leaders/Elite Four/the Champion (rivals included) has
 // their whole team scaled to just under the current level cap (see GetLevelCap, pokemon.c),
