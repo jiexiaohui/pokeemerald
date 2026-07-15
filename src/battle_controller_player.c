@@ -55,7 +55,7 @@ static void PlayerHandlePrintString(void);
 static void PlayerHandlePrintSelectionString(void);
 static void PlayerHandleChooseAction(void);
 static void PlayerHandleYesNoBox(void);
-static void PlayerHandleChooseMove(void);
+void PlayerHandleChooseMove(void);
 static void PlayerHandleChooseItem(void);
 static void PlayerHandleChoosePokemon(void);
 static void PlayerHandleCmd23(void);
@@ -95,7 +95,7 @@ static void PlayerCmdEnd(void);
 
 static void PlayerBufferRunCommand(void);
 static void HandleInputChooseTarget(void);
-static void HandleInputChooseMove(void);
+void HandleInputChooseMove(void);
 static void MoveSelectionCreateCursorAt(u8, u8);
 static void MoveSelectionDestroyCursorAt(u8);
 static void MoveSelectionDisplayPPNumber(void);
@@ -468,7 +468,7 @@ static void HandleInputChooseTarget(void)
     }
 }
 
-static void HandleInputChooseMove(void)
+void HandleInputChooseMove(void)
 {
     bool32 canSelectTarget = FALSE;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleBufferA[gActiveBattler][4]);
@@ -2604,7 +2604,7 @@ static void PlayerHandleYesNoBox(void)
     }
 }
 
-static void HandleChooseMoveAfterDma3(void)
+void HandleChooseMoveAfterDma3(void)
 {
     if (!IsDma3ManagerBusyWithBgCopy())
     {
@@ -2626,7 +2626,7 @@ static void PlayerChooseMoveInBattlePalace(void)
     }
 }
 
-static void PlayerHandleChooseMove(void)
+void PlayerHandleChooseMove(void)
 {
     if (gBattleTypeFlags & BATTLE_TYPE_PALACE)
     {

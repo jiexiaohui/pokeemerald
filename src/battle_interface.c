@@ -188,8 +188,9 @@ static u8 GetScaledExpFraction(s32, s32, s32, u8);
 static void MoveBattleBarGraphically(u8, u8);
 static u8 CalcBarFilledPixels(s32, s32, s32, s32 *, u8 *, u8);
 static void Debug_TestHealthBar_Helper(struct TestingBar *, s32 *, u16 *);
-static void DestroyOpponentTypeIconSprites(void);
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon);
+static void CreateTypeIconSpritesForBattler(u8 battler);
+static void DestroyTypeIconSpritesForBattler(u8 battler);
+static void UpdateTypeIconSpritesForBattler(u8 battler, struct Pokemon *mon);
 
 static const struct OamData sOamData_64x32 =
 {
@@ -207,9 +208,6 @@ static const struct OamData sOamData_64x32 =
     .paletteNum = 0,
     .affineParam = 0,
 };
-
-// EWRAM_DATA: this repo's linker script discards plain .data, so static mutable globals must live in EWRAM_DATA (see project gotchas).
-EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE};
 
 static const struct SpriteTemplate sHealthboxPlayerSpriteTemplates[2] =
 {
@@ -952,6 +950,8 @@ u8 CreateBattlerHealthboxSprites(u8 battler)
     healthBarSpritePtr->hBar_Data6 = data6;
     healthBarSpritePtr->invisible = TRUE;
 
+    CreateTypeIconSpritesForBattler(battler);
+
     return healthboxLeftSpriteId;
 }
 
@@ -1048,34 +1048,64 @@ static void UpdateSpritePos(u8 spriteId, s16 x, s16 y)
 
 void DestoryHealthboxSprite(u8 healthboxSpriteId)
 {
+    u8 battler = gSprites[healthboxSpriteId].hMain_Battler;
+
     DestroySprite(&gSprites[gSprites[healthboxSpriteId].oam.affineParam]);
     DestroySprite(&gSprites[gSprites[healthboxSpriteId].hMain_HealthBarSpriteId]);
     DestroySprite(&gSprites[healthboxSpriteId]);
-    DestroyOpponentTypeIconSprites();
+    DestroyTypeIconSpritesForBattler(battler);
 }
 
-// Nuzlocke QoL: type icon(s) shown above the opposing Pokemon's healthbox (singles battles only).
+// Nuzlocke QoL: type icon(s) shown for BOTH battlers' Pokemon while the FIGHT/move-selection
+// menu is up (singles battles only), sliding in from the sides and back out - matching how
+// Pokemon Cross (another decomp hack) does this, and closely modeled on
+// rh-hideout/pokeemerald-expansion's own type_icons.c feature.
 //
-// This is a direct port of rh-hideout/pokeemerald-expansion's own type-icon feature
-// (src/type_icons.c), including its actual graphics (graphics/types/battle_icons1.png,
-// battle_icons2.png there), after several from-scratch attempts at this (per-type individual
-// tile/palette load-per-switch, both as OBJ sprites and as a BG window) kept corrupting the
-// player's healthbox and other UI in ways that were never conclusively root-caused. Rather than
-// keep debugging blind, this ports their working design as-is: all types share just 2 sprite
-// palettes/tile sheets (10 types in sheet1, 8 in sheet2 for our purposes) instead of one full
-// palette per type, loaded once and left resident for the whole battle, with the correct icon
-// picked via sprite animation frame rather than swapping tile/palette data per switch. This
-// project's own TYPE_NORMAL..TYPE_MYSTERY (0-9) and TYPE_FIRE..TYPE_DARK (10-17) numbering
-// happens to line up with that same 10/8 split already, so no reordering was needed.
+// Earlier attempts (per-type individual tile/palette load-per-switch as both OBJ sprites and a
+// BG window, then a direct port of the expansion's own shared-sheet technique) all
+// destroyed/recreated a fresh sprite via LoadSpriteSheet/CreateSprite/DestroySprite every time a
+// mon's healthbox got a full refresh - which happens more than once per mon - and all of them
+// corrupted other battle UI in ways never conclusively root-caused, even the exact port. Comparing
+// against Pokemon Cross's own sprite list (via mGBA's sprite viewer) showed its type icon sprites
+// sitting at lower OAM slots than the battler Pokemon sprites themselves, meaning they're created
+// once, early, and stay alive for the whole battle - never destroyed/recreated just because the
+// healthbox refreshes. This version follows that instead: the sprite objects are created once in
+// CreateBattlerHealthboxSprites (alongside the healthbox itself) and destroyed once in
+// DestoryHealthboxSprite (the same pairing the healthbox already uses) - only their animation
+// frame and visibility change in between, no sprite-sheet/palette loading or sprite
+// creation/destruction happening mid-battle at all.
+//
+// A mon's type can need either shared tile sheet (see graphics.c) and that isn't known until
+// UpdateHealthboxAttribute provides the actual mon - after the sprites already exist - so each of
+// the 2 icon positions (left/right, only both used for dual types) gets one sprite per sheet (4
+// total per battler) created up front; whichever sheet the current mon's type actually needs is
+// shown, the other stays parked and invisible, rather than ever swapping a sprite's underlying
+// tile sheet after creation (which isn't possible without recreating it).
 #define TAG_TYPE_ICON_SHEET1 0xD715
 #define TAG_TYPE_ICON_SHEET2 0xD716
-
 #define TYPE_ICON_SHEET_SIZE_BYTES 640 // 8x160px sheet at 4bpp = 20 tiles * 32 bytes/tile
 
-#define TYPE_ICON_Y       14 // just above the opponent healthbox's resting position (44, 30)
-#define TYPE_ICON_X_SOLO  44
-#define TYPE_ICON_X_DUAL1 38
-#define TYPE_ICON_X_DUAL2 50
+#define TYPE_ICON_Y_OPPONENT       14 // just above the opponent healthbox's resting position (44, 30)
+#define TYPE_ICON_Y_PLAYER         72 // just above the player healthbox's resting position (158, 88)
+#define TYPE_ICON_X_OPPONENT_SOLO  44
+#define TYPE_ICON_X_OPPONENT_DUAL1 38
+#define TYPE_ICON_X_OPPONENT_DUAL2 50
+#define TYPE_ICON_X_PLAYER_SOLO    158
+#define TYPE_ICON_X_PLAYER_DUAL1   152
+#define TYPE_ICON_X_PLAYER_DUAL2   164
+
+// Off-screen park position while hidden - opponent icons park past the left edge and slide in
+// from there, player icons park past the right edge, matching Pokemon Cross's slide direction.
+#define TYPE_ICON_PARK_X_OPPONENT  -16
+#define TYPE_ICON_PARK_X_PLAYER    (DISPLAY_WIDTH + 16)
+#define TYPE_ICON_SLIDE_SPEED      4
+
+// data[] fields for the type icon sprite's own callback (SpriteCB_TypeIcon).
+#define tIconTargetX data[1]
+#define tIconParkX   data[2]
+#define tIconActive  data[3]
+
+static void SpriteCB_TypeIcon(struct Sprite *sprite);
 
 static const struct OamData sOamData_TypeIcon =
 {
@@ -1123,7 +1153,7 @@ static const struct SpriteTemplate sSpriteTemplate_TypeIconSheet1 =
     .anims = sAnimTable_TypeIcon,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_TypeIcon,
 };
 
 static const struct SpriteTemplate sSpriteTemplate_TypeIconSheet2 =
@@ -1134,13 +1164,17 @@ static const struct SpriteTemplate sSpriteTemplate_TypeIconSheet2 =
     .anims = sAnimTable_TypeIcon,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCallbackDummy,
+    .callback = SpriteCB_TypeIcon,
 };
+
+// [battler][position][sheet] - position 0 is the solo/left icon, position 1 is the right icon
+// (dual types only); sheet 0/1 matches the two SpriteTemplates above.
+EWRAM_DATA static u8 sTypeIconSpriteIds[MAX_BATTLERS_COUNT][2][2] = {0};
 
 // Loads both shared sheets/palettes once per battle and leaves them resident - mirrors the
 // expansion's LoadTypeSpritesAndPalettes, which guards on the tag already being loaded rather
-// than reloading (and thus re-fighting for VRAM/palette slots) on every single mon switch.
-static void LoadOpponentTypeIconGfx(void)
+// than reloading (and thus re-fighting for VRAM/palette slots) for every battler.
+static void LoadTypeIconGfx(void)
 {
     struct SpriteSheet sheet1 = {gTypeIconsShared_Gfx1, TYPE_ICON_SHEET_SIZE_BYTES, TAG_TYPE_ICON_SHEET1};
     struct SpriteSheet sheet2 = {gTypeIconsShared_Gfx2, TYPE_ICON_SHEET_SIZE_BYTES, TAG_TYPE_ICON_SHEET2};
@@ -1156,43 +1190,156 @@ static void LoadOpponentTypeIconGfx(void)
     LoadSpritePalette(&palette2);
 }
 
-static void DestroyOpponentTypeIconSprites(void)
+// Whether the icons should currently be slid in and visible - tied to the PLAYER's own
+// move-selection state (pressing FIGHT and browsing the move list), so both battlers' icons
+// appear/disappear together at that moment rather than independently.
+static bool8 IsPlayerChoosingMove(void)
 {
-    if (sOpponentTypeIconSpriteIds[0] != SPRITE_NONE)
-    {
-        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[0]]);
-        sOpponentTypeIconSpriteIds[0] = SPRITE_NONE;
-    }
-    if (sOpponentTypeIconSpriteIds[1] != SPRITE_NONE)
-    {
-        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[1]]);
-        sOpponentTypeIconSpriteIds[1] = SPRITE_NONE;
-    }
+    u8 playerBattler = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
+
+    return gBattlerControllerFuncs[playerBattler] == PlayerHandleChooseMove
+        || gBattlerControllerFuncs[playerBattler] == HandleChooseMoveAfterDma3
+        || gBattlerControllerFuncs[playerBattler] == HandleInputChooseMove;
 }
 
-static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x)
+static void SpriteCB_TypeIcon(struct Sprite *sprite)
 {
-    const struct SpriteTemplate *spriteTemplate = (type < 10) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
-    u8 frame = (type < 10) ? type : (type - 10);
-    u8 spriteId = CreateSprite(spriteTemplate, x, TYPE_ICON_Y, 0);
-
-    if (spriteId == MAX_SPRITES)
+    if (!sprite->tIconActive)
+    {
+        sprite->invisible = TRUE;
         return;
+    }
 
-    StartSpriteAnim(&gSprites[spriteId], frame);
-    sOpponentTypeIconSpriteIds[slot] = spriteId;
+    if (IsPlayerChoosingMove())
+    {
+        sprite->invisible = FALSE;
+        if (sprite->x < sprite->tIconTargetX)
+            sprite->x = min(sprite->x + TYPE_ICON_SLIDE_SPEED, sprite->tIconTargetX);
+        else if (sprite->x > sprite->tIconTargetX)
+            sprite->x = max(sprite->x - TYPE_ICON_SLIDE_SPEED, sprite->tIconTargetX);
+    }
+    else
+    {
+        if (sprite->x < sprite->tIconParkX)
+            sprite->x = min(sprite->x + TYPE_ICON_SLIDE_SPEED, sprite->tIconParkX);
+        else if (sprite->x > sprite->tIconParkX)
+            sprite->x = max(sprite->x - TYPE_ICON_SLIDE_SPEED, sprite->tIconParkX);
+
+        if (sprite->x == sprite->tIconParkX)
+            sprite->invisible = TRUE;
+    }
 }
 
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
+// Creates all 4 reserved sprites (2 positions x 2 sheets) for this battler, parked off-screen
+// and invisible. Called once, from CreateBattlerHealthboxSprites.
+static void CreateTypeIconSpritesForBattler(u8 battler)
+{
+    bool32 isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
+    s16 parkX = isPlayer ? TYPE_ICON_PARK_X_PLAYER : TYPE_ICON_PARK_X_OPPONENT;
+    s16 y = isPlayer ? TYPE_ICON_Y_PLAYER : TYPE_ICON_Y_OPPONENT;
+    u8 position, sheet;
+
+    LoadTypeIconGfx();
+
+    for (position = 0; position < 2; position++)
+    {
+        for (sheet = 0; sheet < 2; sheet++)
+        {
+            const struct SpriteTemplate *spriteTemplate = (sheet == 0) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
+            u8 spriteId = CreateSprite(spriteTemplate, parkX, y, 0);
+
+            if (spriteId == MAX_SPRITES)
+            {
+                sTypeIconSpriteIds[battler][position][sheet] = SPRITE_NONE;
+                continue;
+            }
+
+            gSprites[spriteId].invisible = TRUE;
+            gSprites[spriteId].tIconParkX = parkX;
+            gSprites[spriteId].tIconActive = FALSE;
+            sTypeIconSpriteIds[battler][position][sheet] = spriteId;
+        }
+    }
+}
+
+// Destroys this battler's 4 reserved sprites. Called once, from DestoryHealthboxSprite.
+static void DestroyTypeIconSpritesForBattler(u8 battler)
+{
+    u8 position, sheet;
+
+    for (position = 0; position < 2; position++)
+    {
+        for (sheet = 0; sheet < 2; sheet++)
+        {
+            u8 spriteId = sTypeIconSpriteIds[battler][position][sheet];
+
+            if (spriteId != SPRITE_NONE)
+            {
+                DestroySprite(&gSprites[spriteId]);
+                sTypeIconSpriteIds[battler][position][sheet] = SPRITE_NONE;
+            }
+        }
+    }
+}
+
+// Activates whichever of the 2 sheet-variant sprites reserved for this position matches the
+// given type, and deactivates the other so it stays parked and invisible.
+static void SetTypeIconSpritePosition(u8 battler, u8 position, u8 type, s16 targetX)
+{
+    u8 activeSheet = (type < 10) ? 0 : 1;
+    u8 frame = (type < 10) ? type : (type - 10);
+    u8 sheet;
+
+    for (sheet = 0; sheet < 2; sheet++)
+    {
+        u8 spriteId = sTypeIconSpriteIds[battler][position][sheet];
+
+        if (spriteId == SPRITE_NONE)
+            continue;
+
+        if (sheet == activeSheet)
+        {
+            StartSpriteAnim(&gSprites[spriteId], frame);
+            gSprites[spriteId].tIconTargetX = targetX;
+            gSprites[spriteId].tIconActive = TRUE;
+        }
+        else
+        {
+            gSprites[spriteId].tIconActive = FALSE;
+        }
+    }
+}
+
+static void DeactivateTypeIconPosition(u8 battler, u8 position)
+{
+    u8 sheet;
+
+    for (sheet = 0; sheet < 2; sheet++)
+    {
+        u8 spriteId = sTypeIconSpriteIds[battler][position][sheet];
+
+        if (spriteId != SPRITE_NONE)
+            gSprites[spriteId].tIconActive = FALSE;
+    }
+}
+
+// Called whenever a battler's healthbox gets a full refresh (may happen more than once for the
+// same mon) - only updates which existing sprite is active/what frame it shows, never creates or
+// destroys a sprite.
+static void UpdateTypeIconSpritesForBattler(u8 battler, struct Pokemon *mon)
 {
     u16 species;
     u8 type1, type2;
+    bool32 isPlayer;
+    s16 soloX, dual1X, dual2X;
 
     if (IsDoubleBattle())
         return;
 
-    DestroyOpponentTypeIconSprites();
-    LoadOpponentTypeIconGfx();
+    isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
+    soloX = isPlayer ? TYPE_ICON_X_PLAYER_SOLO : TYPE_ICON_X_OPPONENT_SOLO;
+    dual1X = isPlayer ? TYPE_ICON_X_PLAYER_DUAL1 : TYPE_ICON_X_OPPONENT_DUAL1;
+    dual2X = isPlayer ? TYPE_ICON_X_PLAYER_DUAL2 : TYPE_ICON_X_OPPONENT_DUAL2;
 
     species = GetMonData(mon, MON_DATA_SPECIES);
     type1 = gSpeciesInfo[species].types[0];
@@ -1200,12 +1347,13 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
 
     if (type1 == type2)
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_X_SOLO);
+        SetTypeIconSpritePosition(battler, 0, type1, soloX);
+        DeactivateTypeIconPosition(battler, 1);
     }
     else
     {
-        CreateOpponentTypeIconSprite(0, type1, TYPE_ICON_X_DUAL1);
-        CreateOpponentTypeIconSprite(1, type2, TYPE_ICON_X_DUAL2);
+        SetTypeIconSpritePosition(battler, 0, type1, dual1X);
+        SetTypeIconSpritePosition(battler, 1, type2, dual2X);
     }
 }
 
@@ -2373,6 +2521,8 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
             UpdateSafariBallsTextOnHealthbox(healthboxSpriteId);
         if (elementId == HEALTHBOX_SAFARI_ALL_TEXT || elementId == HEALTHBOX_SAFARI_BALLS_TEXT)
             UpdateLeftNoOfBallsTextOnHealthbox(healthboxSpriteId);
+        if (elementId == HEALTHBOX_ALL)
+            UpdateTypeIconSpritesForBattler(battler, mon);
     }
     else
     {
@@ -2391,7 +2541,7 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
         if (elementId == HEALTHBOX_ALL)
-            UpdateOpponentTypeIconSprites(mon);
+            UpdateTypeIconSpritesForBattler(battler, mon);
     }
 }
 

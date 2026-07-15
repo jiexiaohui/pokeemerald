@@ -309,6 +309,12 @@ void Task_PlayerController_RestoreBgmAfterCry(u8 taskId);
 void ActionSelectionCreateCursorAt(u8 cursorPosition, u8 baseTileNum);
 void ActionSelectionDestroyCursorAt(u8 cursorPosition);
 void InitMoveSelectionsVarsAndStrings(void);
+// Exposed so battle_interface.c can check gBattlerControllerFuncs[battler] against these to
+// detect "the player currently has the move-selection (FIGHT) list open" for the type icon
+// feature - see CreateTypeIconSpritesForBattler/SpriteCB_TypeIcon.
+void PlayerHandleChooseMove(void);
+void HandleChooseMoveAfterDma3(void);
+void HandleInputChooseMove(void);
 
 // recorded player controller
 void SetControllerToRecordedPlayer(void);
