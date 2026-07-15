@@ -189,7 +189,7 @@ static void MoveBattleBarGraphically(u8, u8);
 static u8 CalcBarFilledPixels(s32, s32, s32, s32 *, u8 *, u8);
 static void Debug_TestHealthBar_Helper(struct TestingBar *, s32 *, u16 *);
 static void DestroyOpponentTypeIconSprites(void);
-static void UpdateOpponentTypeIconSprites(struct Pokemon *mon);
+static void UNUSED UpdateOpponentTypeIconSprites(struct Pokemon *mon);
 
 static const struct OamData sOamData_64x32 =
 {
@@ -2390,8 +2390,15 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
             UpdateNickInHealthbox(healthboxSpriteId, mon);
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
-        if (elementId == HEALTHBOX_ALL)
-            UpdateOpponentTypeIconSprites(mon);
+        // Disabled: three independent implementations of the opponent type icon feature (BG
+        // window, per-type OBJ sprites, and the ported shared-sheet OBJ sprite version below)
+        // have all produced corruption, and this version froze the game outright during the
+        // mandatory Wally/Ralts catching tutorial - a scripted encounter with an unusual
+        // battler setup that's a likely next lead, but not chased down yet. Disabling the call
+        // rather than leaving a live crash in a mandatory, unskippable scene. Re-enable only
+        // after that's root-caused.
+        //if (elementId == HEALTHBOX_ALL)
+        //    UpdateOpponentTypeIconSprites(mon);
     }
 }
 
