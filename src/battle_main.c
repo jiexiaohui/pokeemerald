@@ -56,6 +56,7 @@
 #include "constants/items.h"
 #include "constants/moves.h"
 #include "constants/party_menu.h"
+#include "constants/pokemon.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/trainers.h"
@@ -72,6 +73,9 @@ static void CB2_HandleStartMultiBattle(void);
 static void CB2_HandleStartBattle(void);
 static void TryCorrectShedinjaLanguage(struct Pokemon *mon);
 static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum, bool8 firstTrainer);
+static bool8 ShouldScaleTrainerToLevelCap(u16 trainerNum);
+static u8 GetScaledTrainerLevel(void);
+static void ScaleTrainerMonToLevelCap(struct Pokemon *mon, u8 targetLevel);
 static void BattleMainCB1(void);
 static void CB2_EndLinkBattle(void);
 static void EndLinkBattleInSteps(void);
@@ -1957,6 +1961,61 @@ static void SpriteCB_UnusedBattleInit_Main(struct Sprite *sprite)
     }
 }
 
+#define TRAINER_LEVEL_SCALE_MIN_PERCENT 5  // how far under the level cap, at minimum
+#define TRAINER_LEVEL_SCALE_MAX_PERCENT 15 // how far under the level cap, at most
+
+// Nuzlocke QoL: every trainer except gym leaders/Elite Four/the Champion (rivals included) has
+// their whole team scaled to just under the current level cap (see GetLevelCap, pokemon.c),
+// evolved and given the moveset they'd naturally have at that level, so regular trainer fights
+// stay relevant as the level cap rises instead of trivializing them. Gym leaders/E4/Champion
+// keep their authored levels/teams untouched.
+static bool8 ShouldScaleTrainerToLevelCap(u16 trainerNum)
+{
+    u8 trainerClass = gTrainers[trainerNum].trainerClass;
+
+    return trainerClass != TRAINER_CLASS_LEADER
+        && trainerClass != TRAINER_CLASS_ELITE_FOUR
+        && trainerClass != TRAINER_CLASS_CHAMPION;
+}
+
+// The margin below the cap is a percentage of the cap, not a flat level count, and rolled fresh
+// per mon (not once for the whole team) - a flat "2 levels under" is a big deal at a level 15
+// cap but barely registers by a level 100 one, so keeping it proportional (and independently
+// random per mon, so a team isn't all-lucky or all-unlucky together) keeps regular trainer
+// fights feeling similarly tough throughout the game instead of trivializing late-game.
+static u8 GetScaledTrainerLevel(void)
+{
+    u8 levelCap = GetLevelCap();
+    u8 percentRange = TRAINER_LEVEL_SCALE_MAX_PERCENT - TRAINER_LEVEL_SCALE_MIN_PERCENT + 1;
+    u8 percent = TRAINER_LEVEL_SCALE_MIN_PERCENT + (Random() % percentRange);
+    u8 margin = (levelCap * percent) / 100;
+
+    if (margin == 0)
+        margin = 1;
+    if (margin >= levelCap)
+        return 1;
+
+    return levelCap - margin;
+}
+
+static void ScaleTrainerMonToLevelCap(struct Pokemon *mon, u8 targetLevel)
+{
+    u16 targetSpecies;
+
+    SetMonData(mon, MON_DATA_LEVEL, &targetLevel);
+    CalculateMonStats(mon);
+
+    // Evolve forward through however many level-up stages the new level qualifies for (e.g. a
+    // level 5 starter forced to level 40 should end up fully evolved, not just one stage).
+    while ((targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, 0)) != SPECIES_NONE)
+    {
+        SetMonData(mon, MON_DATA_SPECIES, &targetSpecies);
+        CalculateMonStats(mon);
+    }
+
+    GiveMonInitialMoveset(mon); // Replaces the moveset it was created with (custom or default).
+}
+
 static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum, bool8 firstTrainer)
 {
     u32 nameHash = 0;
@@ -1964,6 +2023,7 @@ static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum, bool8 fir
     u8 fixedIV;
     s32 i, j;
     u8 monsCount;
+    bool8 shouldScaleToLevelCap;
 
     if (trainerNum == TRAINER_SECRET_BASE)
         return 0;
@@ -1986,6 +2046,8 @@ static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum, bool8 fir
         {
             monsCount = gTrainers[trainerNum].partySize;
         }
+
+        shouldScaleToLevelCap = ShouldScaleTrainerToLevelCap(trainerNum);
 
         for (i = 0; i < monsCount; i++)
         {
@@ -2067,6 +2129,9 @@ static u8 CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum, bool8 fir
                 break;
             }
             }
+
+            if (shouldScaleToLevelCap)
+                ScaleTrainerMonToLevelCap(&party[i], GetScaledTrainerLevel());
         }
 
         gBattleTypeFlags |= gTrainers[trainerNum].doubleBattle;
