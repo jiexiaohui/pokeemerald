@@ -2023,19 +2023,34 @@ static u8 GetScaledTrainerLevel(void)
     return levelCap - margin;
 }
 
+// Level isn't a freely-settable field - CalculateMonStats always re-derives it via
+// GetLevelFromMonExp and overwrites whatever was there (see pokemon.c), so setting
+// MON_DATA_LEVEL directly here would get silently clobbered right back to the mon's original
+// level the moment CalculateMonStats runs. EXP is the actual source of truth, so that's what
+// has to be set instead - it's what naturally produces the new level once stats are recalculated.
+static void SetMonExpForLevel(struct Pokemon *mon, u8 level)
+{
+    u16 species = GetMonData(mon, MON_DATA_SPECIES, NULL);
+    u32 exp = gExperienceTables[gSpeciesInfo[species].growthRate][level];
+
+    SetMonData(mon, MON_DATA_EXP, &exp);
+    CalculateMonStats(mon);
+}
+
 static void ScaleTrainerMonToLevelCap(struct Pokemon *mon, u8 targetLevel)
 {
     u16 targetSpecies;
 
-    SetMonData(mon, MON_DATA_LEVEL, &targetLevel);
-    CalculateMonStats(mon);
+    SetMonExpForLevel(mon, targetLevel);
 
     // Evolve forward through however many level-up stages the new level qualifies for (e.g. a
     // level 5 starter forced to level 40 should end up fully evolved, not just one stage).
     while ((targetSpecies = GetEvolutionTargetSpecies(mon, EVO_MODE_NORMAL, 0)) != SPECIES_NONE)
     {
         SetMonData(mon, MON_DATA_SPECIES, &targetSpecies);
-        CalculateMonStats(mon);
+        // Growth rate can differ between an evolution family's stages in principle, so re-derive
+        // exp for the new species to keep the level exact rather than assuming it carries over.
+        SetMonExpForLevel(mon, targetLevel);
     }
 
     GiveMonInitialMoveset(mon); // Replaces the moveset it was created with (custom or default).
