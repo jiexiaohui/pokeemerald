@@ -208,48 +208,6 @@ static const struct OamData sOamData_64x32 =
     .affineParam = 0,
 };
 
-static const u32 *const sTypeIconTiles[NUMBER_OF_MON_TYPES] =
-{
-    [TYPE_NORMAL] = gTypeIcon_Normal,
-    [TYPE_FIGHTING] = gTypeIcon_Fighting,
-    [TYPE_FLYING] = gTypeIcon_Flying,
-    [TYPE_POISON] = gTypeIcon_Poison,
-    [TYPE_GROUND] = gTypeIcon_Ground,
-    [TYPE_ROCK] = gTypeIcon_Rock,
-    [TYPE_BUG] = gTypeIcon_Bug,
-    [TYPE_GHOST] = gTypeIcon_Ghost,
-    [TYPE_STEEL] = gTypeIcon_Steel,
-    [TYPE_FIRE] = gTypeIcon_Fire,
-    [TYPE_WATER] = gTypeIcon_Water,
-    [TYPE_GRASS] = gTypeIcon_Grass,
-    [TYPE_ELECTRIC] = gTypeIcon_Electric,
-    [TYPE_PSYCHIC] = gTypeIcon_Psychic,
-    [TYPE_ICE] = gTypeIcon_Ice,
-    [TYPE_DRAGON] = gTypeIcon_Dragon,
-    [TYPE_DARK] = gTypeIcon_Dark,
-};
-
-static const u16 *const sTypeIconPals[NUMBER_OF_MON_TYPES] =
-{
-    [TYPE_NORMAL] = gTypeIconPal_Normal,
-    [TYPE_FIGHTING] = gTypeIconPal_Fighting,
-    [TYPE_FLYING] = gTypeIconPal_Flying,
-    [TYPE_POISON] = gTypeIconPal_Poison,
-    [TYPE_GROUND] = gTypeIconPal_Ground,
-    [TYPE_ROCK] = gTypeIconPal_Rock,
-    [TYPE_BUG] = gTypeIconPal_Bug,
-    [TYPE_GHOST] = gTypeIconPal_Ghost,
-    [TYPE_STEEL] = gTypeIconPal_Steel,
-    [TYPE_FIRE] = gTypeIconPal_Fire,
-    [TYPE_WATER] = gTypeIconPal_Water,
-    [TYPE_GRASS] = gTypeIconPal_Grass,
-    [TYPE_ELECTRIC] = gTypeIconPal_Electric,
-    [TYPE_PSYCHIC] = gTypeIconPal_Psychic,
-    [TYPE_ICE] = gTypeIconPal_Ice,
-    [TYPE_DRAGON] = gTypeIconPal_Dragon,
-    [TYPE_DARK] = gTypeIconPal_Dark,
-};
-
 // EWRAM_DATA: this repo's linker script discards plain .data, so static mutable globals must live in EWRAM_DATA (see project gotchas).
 EWRAM_DATA static u8 sOpponentTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE};
 
@@ -1098,30 +1056,26 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 
 // Nuzlocke QoL: type icon(s) shown above the opposing Pokemon's healthbox (singles battles only).
 //
-// Earlier sprite/OBJ-based attempts corrupted the player's healthbox and aliased with other live
-// sprites, badly enough that we gave up on OBJ sprites entirely and moved this to a BG window
-// instead. Comparing against rh-hideout/pokeemerald-expansion's own type-icon feature
-// (src/type_icons.c) turned up what was actually likely wrong: those attempts allocated icon
-// tiles *before* the healthbox sprites were created, and reserved/freed VRAM via hand-counted
-// tile math (gReservedSpriteTileCount) instead of the engine's own tag system.
-//
-// This version follows their pattern instead: tiles and palette are loaded on demand under a
-// dedicated sprite tag via LoadSpriteSheet/LoadSpritePalette, the engine resolves the actual
-// VRAM slot itself, and DestroySpriteAndFreeResources frees it back by that same tag. No manual
-// tile-index accounting anywhere. Creation only ever happens from UpdateHealthboxAttribute, i.e.
-// strictly after the healthbox sprite already exists - the likely real fix.
-//
-// v1 keeps this simple: fixed position, no slide-in/bounce-with-healthbox animation. That's a
-// later polish pass once the base version is confirmed not to corrupt anything.
-#define TAG_OPPONENT_TYPE_ICON_1 0xD715
-#define TAG_OPPONENT_TYPE_ICON_2 0xD716
+// This is a direct port of rh-hideout/pokeemerald-expansion's own type-icon feature
+// (src/type_icons.c), including its actual graphics (graphics/types/battle_icons1.png,
+// battle_icons2.png there), after several from-scratch attempts at this (per-type individual
+// tile/palette load-per-switch, both as OBJ sprites and as a BG window) kept corrupting the
+// player's healthbox and other UI in ways that were never conclusively root-caused. Rather than
+// keep debugging blind, this ports their working design as-is: all types share just 2 sprite
+// palettes/tile sheets (10 types in sheet1, 8 in sheet2 for our purposes) instead of one full
+// palette per type, loaded once and left resident for the whole battle, with the correct icon
+// picked via sprite animation frame rather than swapping tile/palette data per switch. This
+// project's own TYPE_NORMAL..TYPE_MYSTERY (0-9) and TYPE_FIRE..TYPE_DARK (10-17) numbering
+// happens to line up with that same 10/8 split already, so no reordering was needed.
+#define TAG_TYPE_ICON_SHEET1 0xD715
+#define TAG_TYPE_ICON_SHEET2 0xD716
 
-#define TYPE_ICON_TILE_SIZE_BYTES 256 // 32x16px at 4bpp = 8 tiles * 32 bytes/tile
+#define TYPE_ICON_SHEET_SIZE_BYTES 640 // 8x160px sheet at 4bpp = 20 tiles * 32 bytes/tile
 
 #define TYPE_ICON_Y       14 // just above the opponent healthbox's resting position (44, 30)
 #define TYPE_ICON_X_SOLO  44
-#define TYPE_ICON_X_DUAL1 28
-#define TYPE_ICON_X_DUAL2 60
+#define TYPE_ICON_X_DUAL1 38
+#define TYPE_ICON_X_DUAL2 50
 
 static const struct OamData sOamData_TypeIcon =
 {
@@ -1130,80 +1084,102 @@ static const struct OamData sOamData_TypeIcon =
     .objMode = ST_OAM_OBJ_NORMAL,
     .mosaic = FALSE,
     .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(32x16),
+    .shape = SPRITE_SHAPE(8x16),
     .x = 0,
     .matrixNum = 0,
-    .size = SPRITE_SIZE(32x16),
+    .size = SPRITE_SIZE(8x16),
     .tileNum = 0,
     .priority = 1,
     .paletteNum = 0,
     .affineParam = 0,
 };
 
-static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon1 =
+// Each icon is 8x16px = 2 tiles, stacked back to back in the sheet; frame N starts at tile N*2.
+static const union AnimCmd sAnim_TypeIconFrame0[] = { ANIMCMD_FRAME(0, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame1[] = { ANIMCMD_FRAME(2, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame2[] = { ANIMCMD_FRAME(4, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame3[] = { ANIMCMD_FRAME(6, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame4[] = { ANIMCMD_FRAME(8, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame5[] = { ANIMCMD_FRAME(10, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame6[] = { ANIMCMD_FRAME(12, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame7[] = { ANIMCMD_FRAME(14, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame8[] = { ANIMCMD_FRAME(16, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_TypeIconFrame9[] = { ANIMCMD_FRAME(18, 0), ANIMCMD_END };
+
+// Shared by both sheet templates below - which sheet's tile data it plays against depends only
+// on which SpriteTemplate (and therefore which tileTag) the sprite was created with.
+static const union AnimCmd *const sAnimTable_TypeIcon[] =
 {
-    .tileTag = TAG_OPPONENT_TYPE_ICON_1,
-    .paletteTag = TAG_OPPONENT_TYPE_ICON_1,
+    sAnim_TypeIconFrame0, sAnim_TypeIconFrame1, sAnim_TypeIconFrame2, sAnim_TypeIconFrame3,
+    sAnim_TypeIconFrame4, sAnim_TypeIconFrame5, sAnim_TypeIconFrame6, sAnim_TypeIconFrame7,
+    sAnim_TypeIconFrame8, sAnim_TypeIconFrame9,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_TypeIconSheet1 =
+{
+    .tileTag = TAG_TYPE_ICON_SHEET1,
+    .paletteTag = TAG_TYPE_ICON_SHEET1,
     .oam = &sOamData_TypeIcon,
-    .anims = gDummySpriteAnimTable,
+    .anims = sAnimTable_TypeIcon,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
     .callback = SpriteCallbackDummy,
 };
 
-static const struct SpriteTemplate sSpriteTemplate_OpponentTypeIcon2 =
+static const struct SpriteTemplate sSpriteTemplate_TypeIconSheet2 =
 {
-    .tileTag = TAG_OPPONENT_TYPE_ICON_2,
-    .paletteTag = TAG_OPPONENT_TYPE_ICON_2,
+    .tileTag = TAG_TYPE_ICON_SHEET2,
+    .paletteTag = TAG_TYPE_ICON_SHEET2,
     .oam = &sOamData_TypeIcon,
-    .anims = gDummySpriteAnimTable,
+    .anims = sAnimTable_TypeIcon,
     .images = NULL,
     .affineAnims = gDummySpriteAffineAnimTable,
     .callback = SpriteCallbackDummy,
 };
+
+// Loads both shared sheets/palettes once per battle and leaves them resident - mirrors the
+// expansion's LoadTypeSpritesAndPalettes, which guards on the tag already being loaded rather
+// than reloading (and thus re-fighting for VRAM/palette slots) on every single mon switch.
+static void LoadOpponentTypeIconGfx(void)
+{
+    struct SpriteSheet sheet1 = {gTypeIconsShared_Gfx1, TYPE_ICON_SHEET_SIZE_BYTES, TAG_TYPE_ICON_SHEET1};
+    struct SpriteSheet sheet2 = {gTypeIconsShared_Gfx2, TYPE_ICON_SHEET_SIZE_BYTES, TAG_TYPE_ICON_SHEET2};
+    struct SpritePalette palette1 = {gTypeIconsShared_Pal1, TAG_TYPE_ICON_SHEET1};
+    struct SpritePalette palette2 = {gTypeIconsShared_Pal2, TAG_TYPE_ICON_SHEET2};
+
+    if (IndexOfSpritePaletteTag(TAG_TYPE_ICON_SHEET1) != 0xFF)
+        return;
+
+    LoadSpriteSheet(&sheet1);
+    LoadSpriteSheet(&sheet2);
+    LoadSpritePalette(&palette1);
+    LoadSpritePalette(&palette2);
+}
 
 static void DestroyOpponentTypeIconSprites(void)
 {
     if (sOpponentTypeIconSpriteIds[0] != SPRITE_NONE)
     {
-        DestroySpriteAndFreeResources(&gSprites[sOpponentTypeIconSpriteIds[0]]);
+        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[0]]);
         sOpponentTypeIconSpriteIds[0] = SPRITE_NONE;
     }
     if (sOpponentTypeIconSpriteIds[1] != SPRITE_NONE)
     {
-        DestroySpriteAndFreeResources(&gSprites[sOpponentTypeIconSpriteIds[1]]);
+        DestroySprite(&gSprites[sOpponentTypeIconSpriteIds[1]]);
         sOpponentTypeIconSpriteIds[1] = SPRITE_NONE;
     }
 }
 
 static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x)
 {
-    const struct SpriteTemplate *spriteTemplate = (slot == 0) ? &sSpriteTemplate_OpponentTypeIcon1 : &sSpriteTemplate_OpponentTypeIcon2;
-    u16 tag = (slot == 0) ? TAG_OPPONENT_TYPE_ICON_1 : TAG_OPPONENT_TYPE_ICON_2;
-    struct SpriteSheet sheet = {sTypeIconTiles[type], TYPE_ICON_TILE_SIZE_BYTES, tag};
-    struct SpritePalette palette = {sTypeIconPals[type], tag};
-    u8 spriteId;
+    const struct SpriteTemplate *spriteTemplate = (type < 10) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
+    u8 frame = (type < 10) ? type : (type - 10);
+    u8 spriteId = CreateSprite(spriteTemplate, x, TYPE_ICON_Y, 0);
 
-    LoadSpriteSheet(&sheet);
-    LoadSpritePalette(&palette);
-
-    // LoadSpriteSheet/LoadSpritePalette fail silently (no free VRAM/palette slot) rather than
-    // erroring, and CreateSprite has no way to tell - it resolves an unregistered tag's "not
-    // found" sentinel (0xFFFF / 0xFF) straight into the OAM's tileNum/paletteNum fields, which
-    // truncates to tile 1023 / palette 15 instead of failing. That silently renders garbage
-    // instead of our icon and can visibly stomp on whatever legitimately owns that tile/palette.
-    // Must check success explicitly and bail out rather than let CreateSprite alias onto that.
-    if (GetSpriteTileStartByTag(tag) == 0xFFFF || IndexOfSpritePaletteTag(tag) == 0xFF)
-    {
-        FreeSpriteTilesByTag(tag);
-        FreeSpritePaletteByTag(tag);
-        return;
-    }
-
-    spriteId = CreateSprite(spriteTemplate, x, TYPE_ICON_Y, 0);
     if (spriteId == MAX_SPRITES)
         return;
 
+    StartSpriteAnim(&gSprites[spriteId], frame);
     sOpponentTypeIconSpriteIds[slot] = spriteId;
 }
 
@@ -1216,6 +1192,7 @@ static void UpdateOpponentTypeIconSprites(struct Pokemon *mon)
         return;
 
     DestroyOpponentTypeIconSprites();
+    LoadOpponentTypeIconGfx();
 
     species = GetMonData(mon, MON_DATA_SPECIES);
     type1 = gSpeciesInfo[species].types[0];
