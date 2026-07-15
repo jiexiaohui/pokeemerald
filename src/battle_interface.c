@@ -1085,23 +1085,25 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 #define TAG_TYPE_ICON_SHEET2 0xD716
 #define TYPE_ICON_SHEET_SIZE_BYTES 640 // 8x160px sheet at 4bpp = 20 tiles * 32 bytes/tile
 
-// Y matches each healthbox's own resting Y exactly (see InitBattlerHealthboxCoords) - the icons
-// live at the same height as the box itself, not above it.
+// Y matches each healthbox's own resting Y exactly (see InitBattlerHealthboxCoords), offset by
+// +-TYPE_ICON_STACK_OFFSET_Y so the 2 icon positions stack vertically without overlapping (each
+// icon is 16px tall, so an offset of 8 puts them edge-to-edge) instead of sitting on top of each
+// other. TWEAK THESE to reposition the icons.
 #define TYPE_ICON_Y_OPPONENT        30
 #define TYPE_ICON_Y_PLAYER          88
+#define TYPE_ICON_STACK_OFFSET_Y    8
 
 // Hidden X is the healthbox's own resting X (44/158) - since icons are created after the
 // healthbox (a later, and therefore lower-drawn, OAM slot at the same priority), parking an icon
 // there tucks it visually behind the box's own 64px-wide body. Shown X is the single resting
-// position once popped out past the box's edge - both icon positions (for dual types) rest at
-// the exact same spot, stacked directly on top of each other, rather than splitting left/right.
-// Opponent icons pop out to the left of their box, player icons pop out to the right of theirs.
+// position once popped out past the box's edge - both icon positions (for dual types) share the
+// same X, only offset vertically per TYPE_ICON_STACK_OFFSET_Y above. Opponent icons pop out to
+// the left of their box, player icons pop out to the right of theirs (and are drawn mirrored -
+// see hFlip below - so the icon shape faces the correct direction on that side).
 #define TYPE_ICON_X_OPPONENT_HIDDEN 44
 #define TYPE_ICON_X_OPPONENT_SHOWN  8
 #define TYPE_ICON_X_PLAYER_HIDDEN   158
 #define TYPE_ICON_X_PLAYER_SHOWN    194
-
-#define TYPE_ICON_SLIDE_SPEED      4
 
 // data[] fields for the type icon sprite's own callback (SpriteCB_TypeIcon).
 #define tIconBattler data[0]
@@ -1221,23 +1223,16 @@ static void SpriteCB_TypeIcon(struct Sprite *sprite)
         return;
     }
 
+    // No slide - just appears/disappears instantly with the FIGHT menu.
     if (IsPlayerChoosingMove())
     {
+        sprite->x = sprite->tIconTargetX;
         sprite->invisible = FALSE;
-        if (sprite->x < sprite->tIconTargetX)
-            sprite->x = min(sprite->x + TYPE_ICON_SLIDE_SPEED, sprite->tIconTargetX);
-        else if (sprite->x > sprite->tIconTargetX)
-            sprite->x = max(sprite->x - TYPE_ICON_SLIDE_SPEED, sprite->tIconTargetX);
     }
     else
     {
-        if (sprite->x < sprite->tIconParkX)
-            sprite->x = min(sprite->x + TYPE_ICON_SLIDE_SPEED, sprite->tIconParkX);
-        else if (sprite->x > sprite->tIconParkX)
-            sprite->x = max(sprite->x - TYPE_ICON_SLIDE_SPEED, sprite->tIconParkX);
-
-        if (sprite->x == sprite->tIconParkX)
-            sprite->invisible = TRUE;
+        sprite->x = sprite->tIconParkX;
+        sprite->invisible = TRUE;
     }
 }
 
@@ -1248,13 +1243,17 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
 {
     bool32 isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
     s16 hiddenX = isPlayer ? TYPE_ICON_X_PLAYER_HIDDEN : TYPE_ICON_X_OPPONENT_HIDDEN;
-    s16 y = isPlayer ? TYPE_ICON_Y_PLAYER : TYPE_ICON_Y_OPPONENT;
+    s16 baseY = isPlayer ? TYPE_ICON_Y_PLAYER : TYPE_ICON_Y_OPPONENT;
     u8 position, sheet;
 
     LoadTypeIconGfx();
 
     for (position = 0; position < 2; position++)
     {
+        // position 0 sits above baseY, position 1 below it, so both are fully visible stacked
+        // rather than directly overlapping.
+        s16 y = (position == 0) ? (baseY - TYPE_ICON_STACK_OFFSET_Y) : (baseY + TYPE_ICON_STACK_OFFSET_Y);
+
         for (sheet = 0; sheet < 2; sheet++)
         {
             const struct SpriteTemplate *spriteTemplate = (sheet == 0) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
@@ -1270,6 +1269,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
             gSprites[spriteId].tIconBattler = battler;
             gSprites[spriteId].tIconParkX = hiddenX;
             gSprites[spriteId].tIconActive = FALSE;
+            gSprites[spriteId].hFlip = isPlayer; // mirrored on the player's side - see comment above
             sTypeIconSpriteIds[battler][position][sheet] = spriteId;
         }
     }
