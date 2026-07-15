@@ -1962,10 +1962,6 @@ static void SpriteCB_UnusedBattleInit_Main(struct Sprite *sprite)
     }
 }
 
-#define TRAINER_LEVEL_SCALE_MIN_PERCENT 15 // how far under the level cap, at minimum
-#define TRAINER_LEVEL_SCALE_MAX_PERCENT 35 // how far under the level cap, at most
-// At a level 15 cap (before the 1st badge) this produces a level 10-13 range.
-
 // Nuzlocke QoL: every trainer except gym leaders/Elite Four/the Champion (rivals included) has
 // their whole team scaled to just under the current level cap (see GetLevelCap, pokemon.c),
 // evolved and given the moveset they'd naturally have at that level, so regular trainer fights
@@ -2003,24 +1999,56 @@ static bool8 ShouldScaleTrainerToLevelCap(u16 trainerNum)
         && !IsFirstRivalBattle(trainerNum);
 }
 
-// The margin below the cap is a percentage of the cap, not a flat level count, and rolled fresh
-// per mon (not once for the whole team) - a flat "2 levels under" is a big deal at a level 15
-// cap but barely registers by a level 100 one, so keeping it proportional (and independently
-// random per mon, so a team isn't all-lucky or all-unlucky together) keeps regular trainer
-// fights feeling similarly tough throughout the game instead of trivializing late-game.
+struct TrainerLevelScaleRange
+{
+    u8 levelCap;
+    u8 minLevel;
+    u8 maxLevel;
+};
+
+// Hand-tuned per-badge ranges rather than a flat percentage-under-cap - a flat percentage made
+// late-game fights too easy, since the same percentage is a much bigger absolute level gap at a
+// high cap than a low one. Only goes up to the cap for the 8th badge (49): there are no regular
+// trainer battles between individual Elite Four members or during the Champion gauntlet, so
+// those in-between level caps (51/53/55/58) never actually get looked up by any real trainer -
+// the lookup below just falls back to this table's last entry for them regardless.
+static const struct TrainerLevelScaleRange sTrainerLevelScaleRanges[] =
+{
+    {15, 10, 13},
+    {19, 12, 17},
+    {24, 15, 21},
+    {29, 19, 25},
+    {31, 20, 26},
+    {33, 22, 28},
+    {42, 30, 36},
+    {46, 33, 40},
+    {49, 35, 42},
+};
+
 static u8 GetScaledTrainerLevel(void)
 {
     u8 levelCap = GetLevelCap();
-    u8 percentRange = TRAINER_LEVEL_SCALE_MAX_PERCENT - TRAINER_LEVEL_SCALE_MIN_PERCENT + 1;
-    u8 percent = TRAINER_LEVEL_SCALE_MIN_PERCENT + (Random() % percentRange);
-    u8 margin = (levelCap * percent) / 100;
+    u8 minLevel = sTrainerLevelScaleRanges[0].minLevel;
+    u8 maxLevel = sTrainerLevelScaleRanges[0].maxLevel;
+    u8 range;
+    s32 i;
 
-    if (margin == 0)
-        margin = 1;
-    if (margin >= levelCap)
-        return 1;
+    // Easter egg: the Nuzlocke is already over once the Champion is beaten (FLAG_SYS_GAME_CLEAR,
+    // level cap 100), so anyone still testing trainer battles past that point gets the "hard
+    // mode" of every remaining trainer running a full level 100 team.
+    if (levelCap >= 100)
+        return 100;
 
-    return levelCap - margin;
+    for (i = 0; i < ARRAY_COUNT(sTrainerLevelScaleRanges); i++)
+    {
+        minLevel = sTrainerLevelScaleRanges[i].minLevel;
+        maxLevel = sTrainerLevelScaleRanges[i].maxLevel;
+        if (levelCap <= sTrainerLevelScaleRanges[i].levelCap)
+            break;
+    }
+
+    range = maxLevel - minLevel + 1;
+    return minLevel + (Random() % range);
 }
 
 // Level isn't a freely-settable field - CalculateMonStats always re-derives it via
