@@ -3370,7 +3370,7 @@ static const struct TrainerMonItemCustomMoves sParty_Roxanne1[] = {
     .lvl = 12,
     .species = SPECIES_ANORITH,
     .heldItem = ITEM_NONE,
-    .moves = {MOVE_SCRATCH, MOVE_HARDEN, MOVE_MUD_SPORT, MOVE_WATER_GUN}
+    .moves = {MOVE_ROCK_TOMB, MOVE_HARDEN, MOVE_MUD_SPORT, MOVE_WATER_GUN}
     },
     {
     .iv = 100,
@@ -3398,24 +3398,31 @@ static const struct TrainerMonItemCustomMoves sParty_Roxanne1[] = {
 static const struct TrainerMonItemCustomMoves sParty_Brawly1[] = {
     {
     .iv = 100,
-    .lvl = 16,
-    .species = SPECIES_MACHOP,
+    .lvl = 17,
+    .species = SPECIES_MAKUHITA,
     .heldItem = ITEM_NONE,
-    .moves = {MOVE_KARATE_CHOP, MOVE_LOW_KICK, MOVE_SEISMIC_TOSS, MOVE_BULK_UP}
+    .moves = {MOVE_FOCUS_ENERGY, MOVE_SAND_ATTACK, MOVE_ARM_THRUST, MOVE_VITAL_THROW}
     },
     {
     .iv = 100,
     .lvl = 16,
-    .species = SPECIES_MEDITITE,
+    .species = SPECIES_TYROGUE,
     .heldItem = ITEM_NONE,
-    .moves = {MOVE_FOCUS_PUNCH, MOVE_LIGHT_SCREEN, MOVE_REFLECT, MOVE_BULK_UP}
+    .moves = {MOVE_TACKLE, MOVE_FOCUS_ENERGY, MOVE_LEER, MOVE_BULK_UP}
+    },
+    {
+    .iv = 100,
+    .lvl = 16,
+    .species = SPECIES_MANKEY,
+    .heldItem = ITEM_NONE,
+    .moves = {MOVE_SCRATCH, MOVE_LEER, MOVE_LOW_KICK, MOVE_KARATE_CHOP}
     },
     {
     .iv = 200,
     .lvl = 19,
-    .species = SPECIES_MAKUHITA,
+    .species = SPECIES_HERACROSS,
     .heldItem = ITEM_SITRUS_BERRY,
-    .moves = {MOVE_ARM_THRUST, MOVE_VITAL_THROW, MOVE_REVERSAL, MOVE_BULK_UP}
+    .moves = {MOVE_HORN_ATTACK, MOVE_ENDURE, MOVE_FURY_ATTACK, MOVE_BULK_UP}
     }
 };
 
@@ -3423,16 +3430,16 @@ static const struct TrainerMonItemCustomMoves sParty_Wattson1[] = {
     {
     .iv = 200,
     .lvl = 20,
-    .species = SPECIES_VOLTORB,
+    .species = SPECIES_PIKACHU,
     .heldItem = ITEM_NONE,
-    .moves = {MOVE_ROLLOUT, MOVE_SPARK, MOVE_SELF_DESTRUCT, MOVE_SHOCK_WAVE}
+    .moves = {MOVE_THUNDER_WAVE, MOVE_QUICK_ATTACK, MOVE_SLAM, MOVE_SHOCK_WAVE}
     },
     {
     .iv = 200,
-    .lvl = 20,
-    .species = SPECIES_ELECTRIKE,
+    .lvl = 22,
+    .species = SPECIES_JOLTEON,
     .heldItem = ITEM_NONE,
-    .moves = {MOVE_SHOCK_WAVE, MOVE_LEER, MOVE_QUICK_ATTACK, MOVE_HOWL}
+    .moves = {MOVE_TAIL_WHIP, MOVE_SAND_ATTACK, MOVE_QUICK_ATTACK, MOVE_SHOCK_WAVE}
     },
     {
     .iv = 220,
