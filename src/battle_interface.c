@@ -1085,19 +1085,23 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 #define TAG_TYPE_ICON_SHEET2 0xD716
 #define TYPE_ICON_SHEET_SIZE_BYTES 640 // 8x160px sheet at 4bpp = 20 tiles * 32 bytes/tile
 
-#define TYPE_ICON_Y_OPPONENT       14 // just above the opponent healthbox's resting position (44, 30)
-#define TYPE_ICON_Y_PLAYER         72 // just above the player healthbox's resting position (158, 88)
-#define TYPE_ICON_X_OPPONENT_SOLO  44
-#define TYPE_ICON_X_OPPONENT_DUAL1 38
-#define TYPE_ICON_X_OPPONENT_DUAL2 50
-#define TYPE_ICON_X_PLAYER_SOLO    158
-#define TYPE_ICON_X_PLAYER_DUAL1   152
-#define TYPE_ICON_X_PLAYER_DUAL2   164
+// Y matches each healthbox's own resting Y exactly (see InitBattlerHealthboxCoords) - the icons
+// live at the same height as the box itself, not above it.
+#define TYPE_ICON_Y_OPPONENT        30
+#define TYPE_ICON_Y_PLAYER          88
 
-// Off-screen park position while hidden - opponent icons park past the left edge and slide in
-// from there, player icons park past the right edge, matching Pokemon Cross's slide direction.
-#define TYPE_ICON_PARK_X_OPPONENT  -16
-#define TYPE_ICON_PARK_X_PLAYER    (DISPLAY_WIDTH + 16)
+// Hidden X is the healthbox's own resting X (44/158) - since icons are created after the
+// healthbox (a later, and therefore lower-drawn, OAM slot at the same priority), parking an icon
+// there tucks it visually behind the box's own 64px-wide body. Left/right are the resting X once
+// slid out past the box's edges (box is 64px wide, so +-36 from center clears it with a small
+// gap) - both positions are always shown now, with the same icon on each side for mono-types.
+#define TYPE_ICON_X_OPPONENT_HIDDEN 44
+#define TYPE_ICON_X_OPPONENT_LEFT   8
+#define TYPE_ICON_X_OPPONENT_RIGHT  80
+#define TYPE_ICON_X_PLAYER_HIDDEN   158
+#define TYPE_ICON_X_PLAYER_LEFT     122
+#define TYPE_ICON_X_PLAYER_RIGHT    194
+
 #define TYPE_ICON_SLIDE_SPEED      4
 
 // data[] fields for the type icon sprite's own callback (SpriteCB_TypeIcon).
@@ -1230,12 +1234,13 @@ static void SpriteCB_TypeIcon(struct Sprite *sprite)
     }
 }
 
-// Creates all 4 reserved sprites (2 positions x 2 sheets) for this battler, parked off-screen
-// and invisible. Called once, from CreateBattlerHealthboxSprites.
+// Creates all 4 reserved sprites (2 positions x 2 sheets) for this battler, parked at the
+// healthbox's own center (so they start out visually hidden behind it) and invisible. Called
+// once, from CreateBattlerHealthboxSprites.
 static void CreateTypeIconSpritesForBattler(u8 battler)
 {
     bool32 isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
-    s16 parkX = isPlayer ? TYPE_ICON_PARK_X_PLAYER : TYPE_ICON_PARK_X_OPPONENT;
+    s16 hiddenX = isPlayer ? TYPE_ICON_X_PLAYER_HIDDEN : TYPE_ICON_X_OPPONENT_HIDDEN;
     s16 y = isPlayer ? TYPE_ICON_Y_PLAYER : TYPE_ICON_Y_OPPONENT;
     u8 position, sheet;
 
@@ -1246,7 +1251,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
         for (sheet = 0; sheet < 2; sheet++)
         {
             const struct SpriteTemplate *spriteTemplate = (sheet == 0) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
-            u8 spriteId = CreateSprite(spriteTemplate, parkX, y, 0);
+            u8 spriteId = CreateSprite(spriteTemplate, hiddenX, y, 0);
 
             if (spriteId == MAX_SPRITES)
             {
@@ -1255,7 +1260,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
             }
 
             gSprites[spriteId].invisible = TRUE;
-            gSprites[spriteId].tIconParkX = parkX;
+            gSprites[spriteId].tIconParkX = hiddenX;
             gSprites[spriteId].tIconActive = FALSE;
             sTypeIconSpriteIds[battler][position][sheet] = spriteId;
         }
@@ -1310,51 +1315,31 @@ static void SetTypeIconSpritePosition(u8 battler, u8 position, u8 type, s16 targ
     }
 }
 
-static void DeactivateTypeIconPosition(u8 battler, u8 position)
-{
-    u8 sheet;
-
-    for (sheet = 0; sheet < 2; sheet++)
-    {
-        u8 spriteId = sTypeIconSpriteIds[battler][position][sheet];
-
-        if (spriteId != SPRITE_NONE)
-            gSprites[spriteId].tIconActive = FALSE;
-    }
-}
-
 // Called whenever a battler's healthbox gets a full refresh (may happen more than once for the
 // same mon) - only updates which existing sprite is active/what frame it shows, never creates or
-// destroys a sprite.
+// destroys a sprite. Both positions are always shown - for a mono-type mon, type2 already equals
+// type1 (species data duplicates it, e.g. Zigzagoon's types are {NORMAL, NORMAL}), so both sides
+// naturally end up showing the same icon rather than needing special-casing here.
 static void UpdateTypeIconSpritesForBattler(u8 battler, struct Pokemon *mon)
 {
     u16 species;
     u8 type1, type2;
     bool32 isPlayer;
-    s16 soloX, dual1X, dual2X;
+    s16 leftX, rightX;
 
     if (IsDoubleBattle())
         return;
 
     isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
-    soloX = isPlayer ? TYPE_ICON_X_PLAYER_SOLO : TYPE_ICON_X_OPPONENT_SOLO;
-    dual1X = isPlayer ? TYPE_ICON_X_PLAYER_DUAL1 : TYPE_ICON_X_OPPONENT_DUAL1;
-    dual2X = isPlayer ? TYPE_ICON_X_PLAYER_DUAL2 : TYPE_ICON_X_OPPONENT_DUAL2;
+    leftX = isPlayer ? TYPE_ICON_X_PLAYER_LEFT : TYPE_ICON_X_OPPONENT_LEFT;
+    rightX = isPlayer ? TYPE_ICON_X_PLAYER_RIGHT : TYPE_ICON_X_OPPONENT_RIGHT;
 
     species = GetMonData(mon, MON_DATA_SPECIES);
     type1 = gSpeciesInfo[species].types[0];
     type2 = gSpeciesInfo[species].types[1];
 
-    if (type1 == type2)
-    {
-        SetTypeIconSpritePosition(battler, 0, type1, soloX);
-        DeactivateTypeIconPosition(battler, 1);
-    }
-    else
-    {
-        SetTypeIconSpritePosition(battler, 0, type1, dual1X);
-        SetTypeIconSpritePosition(battler, 1, type2, dual2X);
-    }
+    SetTypeIconSpritePosition(battler, 0, type1, leftX);
+    SetTypeIconSpritePosition(battler, 1, type2, rightX);
 }
 
 void DummyBattleInterfaceFunc(u8 healthboxSpriteId, bool8 isDoubleBattleBattlerOnly)
