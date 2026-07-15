@@ -55,6 +55,7 @@
 #include "constants/hold_effects.h"
 #include "constants/items.h"
 #include "constants/moves.h"
+#include "constants/opponents.h"
 #include "constants/party_menu.h"
 #include "constants/pokemon.h"
 #include "constants/rgb.h"
@@ -1969,13 +1970,36 @@ static void SpriteCB_UnusedBattleInit_Main(struct Sprite *sprite)
 // evolved and given the moveset they'd naturally have at that level, so regular trainer fights
 // stay relevant as the level cap rises instead of trivializing them. Gym leaders/E4/Champion
 // keep their authored levels/teams untouched.
+//
+// The very first rival battle (Route 103, right after picking a starter) is also excluded: the
+// rival's starter is always chosen to counter yours, so that fight is already meant to be a bit
+// harder than a level-even matchup - scaling the rival's level up on top of the type advantage
+// would make it needlessly close to unwinnable this early. Exactly one of these six trainer IDs
+// fires depending on player/rival gender and which starter you picked.
+static bool8 IsFirstRivalBattle(u16 trainerNum)
+{
+    switch (trainerNum)
+    {
+    case TRAINER_BRENDAN_ROUTE_103_MUDKIP:
+    case TRAINER_BRENDAN_ROUTE_103_TREECKO:
+    case TRAINER_BRENDAN_ROUTE_103_TORCHIC:
+    case TRAINER_MAY_ROUTE_103_MUDKIP:
+    case TRAINER_MAY_ROUTE_103_TREECKO:
+    case TRAINER_MAY_ROUTE_103_TORCHIC:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
 static bool8 ShouldScaleTrainerToLevelCap(u16 trainerNum)
 {
     u8 trainerClass = gTrainers[trainerNum].trainerClass;
 
     return trainerClass != TRAINER_CLASS_LEADER
         && trainerClass != TRAINER_CLASS_ELITE_FOUR
-        && trainerClass != TRAINER_CLASS_CHAMPION;
+        && trainerClass != TRAINER_CLASS_CHAMPION
+        && !IsFirstRivalBattle(trainerNum);
 }
 
 // The margin below the cap is a percentage of the cap, not a flat level count, and rolled fresh
