@@ -1092,19 +1092,19 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 
 // Hidden X is the healthbox's own resting X (44/158) - since icons are created after the
 // healthbox (a later, and therefore lower-drawn, OAM slot at the same priority), parking an icon
-// there tucks it visually behind the box's own 64px-wide body. Left/right are the resting X once
-// slid out past the box's edges (box is 64px wide, so +-36 from center clears it with a small
-// gap) - both positions are always shown now, with the same icon on each side for mono-types.
+// there tucks it visually behind the box's own 64px-wide body. Shown X is the single resting
+// position once popped out past the box's edge - both icon positions (for dual types) rest at
+// the exact same spot, stacked directly on top of each other, rather than splitting left/right.
+// Opponent icons pop out to the left of their box, player icons pop out to the right of theirs.
 #define TYPE_ICON_X_OPPONENT_HIDDEN 44
-#define TYPE_ICON_X_OPPONENT_LEFT   8
-#define TYPE_ICON_X_OPPONENT_RIGHT  80
+#define TYPE_ICON_X_OPPONENT_SHOWN  8
 #define TYPE_ICON_X_PLAYER_HIDDEN   158
-#define TYPE_ICON_X_PLAYER_LEFT     122
-#define TYPE_ICON_X_PLAYER_RIGHT    194
+#define TYPE_ICON_X_PLAYER_SHOWN    194
 
 #define TYPE_ICON_SLIDE_SPEED      4
 
 // data[] fields for the type icon sprite's own callback (SpriteCB_TypeIcon).
+#define tIconBattler data[0]
 #define tIconTargetX data[1]
 #define tIconParkX   data[2]
 #define tIconActive  data[3]
@@ -1208,6 +1208,13 @@ static bool8 IsPlayerChoosingMove(void)
 
 static void SpriteCB_TypeIcon(struct Sprite *sprite)
 {
+    struct Sprite *healthbox = &gSprites[gHealthboxSpriteIds[sprite->tIconBattler]];
+
+    // Tracks the healthbox's own shake/bounce offset, same as SpriteCB_HealthBoxOther does for
+    // the healthbox's other half, so the icon moves along with it instead of sitting still.
+    sprite->x2 = healthbox->x2;
+    sprite->y2 = healthbox->y2;
+
     if (!sprite->tIconActive)
     {
         sprite->invisible = TRUE;
@@ -1260,6 +1267,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
             }
 
             gSprites[spriteId].invisible = TRUE;
+            gSprites[spriteId].tIconBattler = battler;
             gSprites[spriteId].tIconParkX = hiddenX;
             gSprites[spriteId].tIconActive = FALSE;
             sTypeIconSpriteIds[battler][position][sheet] = spriteId;
@@ -1317,29 +1325,28 @@ static void SetTypeIconSpritePosition(u8 battler, u8 position, u8 type, s16 targ
 
 // Called whenever a battler's healthbox gets a full refresh (may happen more than once for the
 // same mon) - only updates which existing sprite is active/what frame it shows, never creates or
-// destroys a sprite. Both positions are always shown - for a mono-type mon, type2 already equals
-// type1 (species data duplicates it, e.g. Zigzagoon's types are {NORMAL, NORMAL}), so both sides
-// naturally end up showing the same icon rather than needing special-casing here.
+// destroys a sprite. Both positions are always shown, stacked at the exact same spot - for a
+// mono-type mon, type2 already equals type1 (species data duplicates it, e.g. Zigzagoon's types
+// are {NORMAL, NORMAL}), so both naturally end up showing the same icon on top of each other.
 static void UpdateTypeIconSpritesForBattler(u8 battler, struct Pokemon *mon)
 {
     u16 species;
     u8 type1, type2;
     bool32 isPlayer;
-    s16 leftX, rightX;
+    s16 shownX;
 
     if (IsDoubleBattle())
         return;
 
     isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
-    leftX = isPlayer ? TYPE_ICON_X_PLAYER_LEFT : TYPE_ICON_X_OPPONENT_LEFT;
-    rightX = isPlayer ? TYPE_ICON_X_PLAYER_RIGHT : TYPE_ICON_X_OPPONENT_RIGHT;
+    shownX = isPlayer ? TYPE_ICON_X_PLAYER_SHOWN : TYPE_ICON_X_OPPONENT_SHOWN;
 
     species = GetMonData(mon, MON_DATA_SPECIES);
     type1 = gSpeciesInfo[species].types[0];
     type2 = gSpeciesInfo[species].types[1];
 
-    SetTypeIconSpritePosition(battler, 0, type1, leftX);
-    SetTypeIconSpritePosition(battler, 1, type2, rightX);
+    SetTypeIconSpritePosition(battler, 0, type1, shownX);
+    SetTypeIconSpritePosition(battler, 1, type2, shownX);
 }
 
 void DummyBattleInterfaceFunc(u8 healthboxSpriteId, bool8 isDoubleBattleBattlerOnly)
