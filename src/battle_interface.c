@@ -1187,6 +1187,19 @@ static void CreateOpponentTypeIconSprite(u8 slot, u8 type, s16 x)
     LoadSpriteSheet(&sheet);
     LoadSpritePalette(&palette);
 
+    // LoadSpriteSheet/LoadSpritePalette fail silently (no free VRAM/palette slot) rather than
+    // erroring, and CreateSprite has no way to tell - it resolves an unregistered tag's "not
+    // found" sentinel (0xFFFF / 0xFF) straight into the OAM's tileNum/paletteNum fields, which
+    // truncates to tile 1023 / palette 15 instead of failing. That silently renders garbage
+    // instead of our icon and can visibly stomp on whatever legitimately owns that tile/palette.
+    // Must check success explicitly and bail out rather than let CreateSprite alias onto that.
+    if (GetSpriteTileStartByTag(tag) == 0xFFFF || IndexOfSpritePaletteTag(tag) == 0xFF)
+    {
+        FreeSpriteTilesByTag(tag);
+        FreeSpritePaletteByTag(tag);
+        return;
+    }
+
     spriteId = CreateSprite(spriteTemplate, x, TYPE_ICON_Y, 0);
     if (spriteId == MAX_SPRITES)
         return;
