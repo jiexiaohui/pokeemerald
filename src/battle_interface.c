@@ -1244,6 +1244,10 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
     bool32 isPlayer = (GetBattlerSide(battler) == B_SIDE_PLAYER);
     s16 hiddenX = isPlayer ? TYPE_ICON_X_PLAYER_HIDDEN : TYPE_ICON_X_OPPONENT_HIDDEN;
     s16 baseY = isPlayer ? TYPE_ICON_Y_PLAYER : TYPE_ICON_Y_OPPONENT;
+    // Player icons sit in front of the healthbox (subpriority 0, below the healthbox left/right
+    // sprites' 1 and tying the healthbar's own 0); opponent icons sit behind it (subpriority 2,
+    // above both).
+    u8 subpriority = isPlayer ? 0 : 2;
     u8 position, sheet;
 
     LoadTypeIconGfx();
@@ -1257,9 +1261,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
         for (sheet = 0; sheet < 2; sheet++)
         {
             const struct SpriteTemplate *spriteTemplate = (sheet == 0) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
-            // subpriority 2 - higher than the healthbox left/right sprites (1) and healthbar (0),
-            // so on ties within oam.priority the icons always draw behind the healthbox pieces.
-            u8 spriteId = CreateSprite(spriteTemplate, hiddenX, y, 2);
+            u8 spriteId = CreateSprite(spriteTemplate, hiddenX, y, subpriority);
 
             if (spriteId == MAX_SPRITES)
             {
