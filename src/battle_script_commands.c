@@ -9994,6 +9994,8 @@ static void Cmd_handleballthrow(void)
         if (gBattleMons[gBattlerTarget].status1 & (STATUS1_POISON | STATUS1_BURN | STATUS1_PARALYSIS | STATUS1_TOXIC_POISON))
             odds = (odds * 15) / 10;
 
+        odds *= 2; // Nuzlocke QoL: double the overall catch rate, on top of every other modifier above
+
         if (gLastUsedItem != ITEM_SAFARI_BALL)
         {
             if (gLastUsedItem == ITEM_MASTER_BALL)
