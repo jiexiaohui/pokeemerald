@@ -1086,18 +1086,20 @@ void DestoryHealthboxSprite(u8 healthboxSpriteId)
 #define TYPE_ICON_SHEET_SIZE_BYTES 640 // 8x160px sheet at 4bpp = 20 tiles * 32 bytes/tile
 
 // Y matches each healthbox's own resting Y exactly (see InitBattlerHealthboxCoords), offset by
-// +-TYPE_ICON_STACK_OFFSET_Y so the 2 icon positions stack vertically without overlapping (each
-// icon is 16px tall, so an offset of 8 puts them edge-to-edge) instead of sitting on top of each
-// other. TWEAK THESE to reposition the icons.
-#define TYPE_ICON_Y_OPPONENT        30
-#define TYPE_ICON_Y_PLAYER          88
-#define TYPE_ICON_STACK_OFFSET_Y    8
+// -TYPE_ICON_STACK_OFFSET_Y_TOP / +TYPE_ICON_STACK_OFFSET_Y_BOTTOM so the 2 icon positions stack
+// vertically without overlapping (each icon is 16px tall, so an offset of 8 on both puts them
+// edge-to-edge) instead of sitting on top of each other. Kept as separate constants so the top
+// and bottom icon can each be nudged independently. TWEAK THESE to reposition the icons.
+#define TYPE_ICON_Y_OPPONENT             30
+#define TYPE_ICON_Y_PLAYER               88
+#define TYPE_ICON_STACK_OFFSET_Y_TOP     8
+#define TYPE_ICON_STACK_OFFSET_Y_BOTTOM  8
 
 // Hidden X is the healthbox's own resting X (44/158) - since icons are created after the
 // healthbox (a later, and therefore lower-drawn, OAM slot at the same priority), parking an icon
 // there tucks it visually behind the box's own 64px-wide body. Shown X is the single resting
 // position once popped out past the box's edge - both icon positions (for dual types) share the
-// same X, only offset vertically per TYPE_ICON_STACK_OFFSET_Y above. Opponent icons pop out to
+// same X, only offset vertically per TYPE_ICON_STACK_OFFSET_Y_TOP/_BOTTOM above. Opponent icons pop out to
 // the left of their box, player icons pop out to the right of theirs (and are drawn mirrored -
 // see hFlip below - so the icon shape faces the correct direction on that side).
 #define TYPE_ICON_X_OPPONENT_HIDDEN 44
@@ -1256,7 +1258,7 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
     {
         // position 0 sits above baseY, position 1 below it, so both are fully visible stacked
         // rather than directly overlapping.
-        s16 y = (position == 0) ? (baseY - TYPE_ICON_STACK_OFFSET_Y) : (baseY + TYPE_ICON_STACK_OFFSET_Y);
+        s16 y = (position == 0) ? (baseY - TYPE_ICON_STACK_OFFSET_Y_TOP) : (baseY + TYPE_ICON_STACK_OFFSET_Y_BOTTOM);
 
         for (sheet = 0; sheet < 2; sheet++)
         {
