@@ -1257,7 +1257,9 @@ static void CreateTypeIconSpritesForBattler(u8 battler)
         for (sheet = 0; sheet < 2; sheet++)
         {
             const struct SpriteTemplate *spriteTemplate = (sheet == 0) ? &sSpriteTemplate_TypeIconSheet1 : &sSpriteTemplate_TypeIconSheet2;
-            u8 spriteId = CreateSprite(spriteTemplate, hiddenX, y, 0);
+            // subpriority 2 - higher than the healthbox left/right sprites (1) and healthbar (0),
+            // so on ties within oam.priority the icons always draw behind the healthbox pieces.
+            u8 spriteId = CreateSprite(spriteTemplate, hiddenX, y, 2);
 
             if (spriteId == MAX_SPRITES)
             {
