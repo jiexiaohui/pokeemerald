@@ -1355,6 +1355,153 @@ static void UpdateTypeIconSpritesForBattler(u8 battler, struct Pokemon *mon)
     SetTypeIconSpritePosition(battler, 1, type2, shownX);
 }
 
+// Nuzlocke QoL: replaces the "TYPE/NORMAL" text under the PP count in the FIGHT menu's move-info
+// box with 2 icons - the move's category (physical/special/status) on the left, its type to the
+// right - ported from rh-hideout/pokeemerald-expansion's graphics/interface/category_icons.png
+// (3 stacked 16x16 frames: physical, special, status, in that order). The type icon half reuses
+// the same shared sheets/tags already loaded for the healthbox icons above.
+#define TAG_CATEGORY_ICON 0xD717
+
+#define MOVE_INFO_CATEGORY_ICON_X 176
+#define MOVE_INFO_TYPE_ICON_X     188
+#define MOVE_INFO_ICON_Y          144
+
+static const struct OamData sOamData_CategoryIcon =
+{
+    .y = 0,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .mosaic = FALSE,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(16x16),
+    .x = 0,
+    .matrixNum = 0,
+    .size = SPRITE_SIZE(16x16),
+    .tileNum = 0,
+    .priority = 1,
+    .paletteNum = 0,
+    .affineParam = 0,
+};
+
+static const union AnimCmd sAnim_CategoryIconPhysical[] = { ANIMCMD_FRAME(0, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_CategoryIconSpecial[]  = { ANIMCMD_FRAME(4, 0), ANIMCMD_END };
+static const union AnimCmd sAnim_CategoryIconStatus[]   = { ANIMCMD_FRAME(8, 0), ANIMCMD_END };
+
+static const union AnimCmd *const sAnimTable_CategoryIcon[] =
+{
+    sAnim_CategoryIconPhysical, sAnim_CategoryIconSpecial, sAnim_CategoryIconStatus,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_CategoryIcon =
+{
+    .tileTag = TAG_CATEGORY_ICON,
+    .paletteTag = TAG_CATEGORY_ICON,
+    .oam = &sOamData_CategoryIcon,
+    .anims = sAnimTable_CategoryIcon,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
+
+// Same tile/palette tags as sSpriteTemplate_TypeIconSheet1/2 above (TAG_TYPE_ICON_SHEET1/2) -
+// LoadTypeIconGfx() is a no-op if those sheets are already loaded, so this just adds 2 more
+// sprites referencing the same shared graphics, not a second copy of them.
+static const struct SpriteTemplate sSpriteTemplate_MoveInfoTypeIconSheet1 =
+{
+    .tileTag = TAG_TYPE_ICON_SHEET1,
+    .paletteTag = TAG_TYPE_ICON_SHEET1,
+    .oam = &sOamData_TypeIcon,
+    .anims = sAnimTable_TypeIcon,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
+
+static const struct SpriteTemplate sSpriteTemplate_MoveInfoTypeIconSheet2 =
+{
+    .tileTag = TAG_TYPE_ICON_SHEET2,
+    .paletteTag = TAG_TYPE_ICON_SHEET2,
+    .oam = &sOamData_TypeIcon,
+    .anims = sAnimTable_TypeIcon,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
+};
+
+EWRAM_DATA static u8 sMoveInfoCategoryIconSpriteId = SPRITE_NONE;
+EWRAM_DATA static u8 sMoveInfoTypeIconSpriteIds[2] = {SPRITE_NONE, SPRITE_NONE}; // [sheet]
+
+static void LoadCategoryIconGfx(void)
+{
+    struct SpriteSheet sheet = {gCategoryIcons_Gfx, 16 * 16 * 3 / 2, TAG_CATEGORY_ICON};
+    struct SpritePalette palette = {gCategoryIcons_Pal, TAG_CATEGORY_ICON};
+
+    if (IndexOfSpritePaletteTag(TAG_CATEGORY_ICON) != 0xFF)
+        return;
+
+    LoadSpriteSheet(&sheet);
+    LoadSpritePalette(&palette);
+}
+
+// Created once, lazily, the first time a move is highlighted - never destroyed, just kept
+// invisible outside of move selection (there's no per-battle teardown hook for the healthbox
+// sprites either - see DestoryHealthboxSprite's lack of callers - the whole sprite pool gets
+// wiped between battles regardless).
+static void CreateMoveInfoIconsIfNeeded(void)
+{
+    if (sMoveInfoCategoryIconSpriteId != SPRITE_NONE)
+        return;
+
+    LoadCategoryIconGfx();
+    LoadTypeIconGfx();
+
+    sMoveInfoCategoryIconSpriteId = CreateSprite(&sSpriteTemplate_CategoryIcon, MOVE_INFO_CATEGORY_ICON_X, MOVE_INFO_ICON_Y, 0);
+    gSprites[sMoveInfoCategoryIconSpriteId].invisible = TRUE;
+
+    sMoveInfoTypeIconSpriteIds[0] = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet1, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
+    sMoveInfoTypeIconSpriteIds[1] = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet2, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
+    gSprites[sMoveInfoTypeIconSpriteIds[0]].invisible = TRUE;
+    gSprites[sMoveInfoTypeIconSpriteIds[1]].invisible = TRUE;
+}
+
+// Called from MoveSelectionDisplayMoveType every time the highlighted move changes (or the move
+// menu (re)opens) - picks the category/type icon frames for the given move and shows both only
+// while the FIGHT/move-selection menu is actually up, same as the healthbox icons.
+void UpdateMoveInfoIcons(u16 move)
+{
+    u8 type = gBattleMoves[move].type;
+    u8 category;
+    u8 activeSheet = (type < 10) ? 0 : 1;
+    u8 frame = (type < 10) ? type : (type - 10);
+    bool8 showing = IsPlayerChoosingMove();
+    u8 sheet;
+
+    CreateMoveInfoIconsIfNeeded();
+
+    if (gBattleMoves[move].power == 0)
+        category = 2; // status
+    else if (IS_TYPE_PHYSICAL(type))
+        category = 0; // physical
+    else
+        category = 1; // special
+
+    StartSpriteAnim(&gSprites[sMoveInfoCategoryIconSpriteId], category);
+    gSprites[sMoveInfoCategoryIconSpriteId].invisible = !showing;
+
+    for (sheet = 0; sheet < 2; sheet++)
+    {
+        if (sheet == activeSheet)
+        {
+            StartSpriteAnim(&gSprites[sMoveInfoTypeIconSpriteIds[sheet]], frame);
+            gSprites[sMoveInfoTypeIconSpriteIds[sheet]].invisible = !showing;
+        }
+        else
+        {
+            gSprites[sMoveInfoTypeIconSpriteIds[sheet]].invisible = TRUE;
+        }
+    }
+}
+
 void DummyBattleInterfaceFunc(u8 healthboxSpriteId, bool8 isDoubleBattleBattlerOnly)
 {
 

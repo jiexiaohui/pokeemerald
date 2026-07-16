@@ -4068,6 +4068,9 @@ extern const u32 gTypeIconsShared_Gfx2[];
 extern const u16 gTypeIconsShared_Pal1[];
 extern const u16 gTypeIconsShared_Pal2[];
 
+extern const u32 gCategoryIcons_Gfx[];
+extern const u16 gCategoryIcons_Pal[];
+
 extern const u16 gNamingScreenMenu_Pal[6][16];
 extern const u32 gNamingScreenMenu_Gfx[];
 extern const u32 gNamingScreenBackground_Tilemap[];
