@@ -1449,19 +1449,37 @@ static void LoadCategoryIconGfx(void)
 // wiped between battles regardless).
 static void CreateMoveInfoIconsIfNeeded(void)
 {
+    u8 spriteId;
+
     if (sMoveInfoCategoryIconSpriteId != SPRITE_NONE)
         return;
 
     LoadCategoryIconGfx();
     LoadTypeIconGfx();
 
-    sMoveInfoCategoryIconSpriteId = CreateSprite(&sSpriteTemplate_CategoryIcon, MOVE_INFO_CATEGORY_ICON_X, MOVE_INFO_ICON_Y, 0);
-    gSprites[sMoveInfoCategoryIconSpriteId].invisible = TRUE;
+    // CreateSprite returns MAX_SPRITES (not SPRITE_NONE) on failure - must check for that
+    // specifically, since dereferencing gSprites[MAX_SPRITES] would write one slot past the end
+    // of the sprite pool and silently corrupt whatever EWRAM data follows it.
+    spriteId = CreateSprite(&sSpriteTemplate_CategoryIcon, MOVE_INFO_CATEGORY_ICON_X, MOVE_INFO_ICON_Y, 0);
+    if (spriteId != MAX_SPRITES)
+    {
+        gSprites[spriteId].invisible = TRUE;
+        sMoveInfoCategoryIconSpriteId = spriteId;
+    }
 
-    sMoveInfoTypeIconSpriteIds[0] = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet1, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
-    sMoveInfoTypeIconSpriteIds[1] = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet2, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
-    gSprites[sMoveInfoTypeIconSpriteIds[0]].invisible = TRUE;
-    gSprites[sMoveInfoTypeIconSpriteIds[1]].invisible = TRUE;
+    spriteId = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet1, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
+    if (spriteId != MAX_SPRITES)
+    {
+        gSprites[spriteId].invisible = TRUE;
+        sMoveInfoTypeIconSpriteIds[0] = spriteId;
+    }
+
+    spriteId = CreateSprite(&sSpriteTemplate_MoveInfoTypeIconSheet2, MOVE_INFO_TYPE_ICON_X, MOVE_INFO_ICON_Y, 0);
+    if (spriteId != MAX_SPRITES)
+    {
+        gSprites[spriteId].invisible = TRUE;
+        sMoveInfoTypeIconSpriteIds[1] = spriteId;
+    }
 }
 
 // Called from MoveSelectionDisplayMoveType every time the highlighted move changes (or the move
@@ -1485,11 +1503,17 @@ void UpdateMoveInfoIcons(u16 move)
     else
         category = 1; // special
 
-    StartSpriteAnim(&gSprites[sMoveInfoCategoryIconSpriteId], category);
-    gSprites[sMoveInfoCategoryIconSpriteId].invisible = !showing;
+    if (sMoveInfoCategoryIconSpriteId != SPRITE_NONE)
+    {
+        StartSpriteAnim(&gSprites[sMoveInfoCategoryIconSpriteId], category);
+        gSprites[sMoveInfoCategoryIconSpriteId].invisible = !showing;
+    }
 
     for (sheet = 0; sheet < 2; sheet++)
     {
+        if (sMoveInfoTypeIconSpriteIds[sheet] == SPRITE_NONE)
+            continue;
+
         if (sheet == activeSheet)
         {
             StartSpriteAnim(&gSprites[sMoveInfoTypeIconSpriteIds[sheet]], frame);
