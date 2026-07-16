@@ -365,11 +365,6 @@ const u32 gTypeIconsShared_Gfx2[] = INCGFX_U32("graphics/battle_interface/type_i
 const u16 gTypeIconsShared_Pal1[] = INCGFX_U16("graphics/battle_interface/type_icons_shared/sheet1.png", ".gbapal");
 const u16 gTypeIconsShared_Pal2[] = INCGFX_U16("graphics/battle_interface/type_icons_shared/sheet2.png", ".gbapal");
 
-// Ported from rh-hideout/pokeemerald-expansion's graphics/interface/category_icons.png: 3 stacked
-// 16x16 frames (physical/special/status, in that order) selected via sprite animation frame.
-const u32 gCategoryIcons_Gfx[] = INCGFX_U32("graphics/battle_interface/category_icons.png", ".4bpp");
-const u16 gCategoryIcons_Pal[] = INCGFX_U16("graphics/battle_interface/category_icons.png", ".gbapal");
-
 const u8 gHealthboxElementsGfxTable[][32] = INCBIN_U8("graphics/battle_interface/hpbar.4bpp",
                                                   "graphics/battle_interface/expbar.4bpp",
                                                   "graphics/battle_interface/status.4bpp",

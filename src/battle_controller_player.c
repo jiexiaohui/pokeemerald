@@ -1493,13 +1493,18 @@ static void MoveSelectionDisplayPPNumber(void)
     BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP_REMAINING);
 }
 
-// Nuzlocke QoL: shows category + type icons here instead of "TYPE/NORMAL" text - see
-// UpdateMoveInfoIcons in battle_interface.c.
 static void MoveSelectionDisplayMoveType(void)
 {
+    u8 *txtPtr;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleBufferA[gActiveBattler][4]);
 
-    UpdateMoveInfoIcons(moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]);
+    txtPtr = StringCopy(gDisplayedStringBattle, gText_MoveInterfaceType);
+    *(txtPtr)++ = EXT_CTRL_CODE_BEGIN;
+    *(txtPtr)++ = EXT_CTRL_CODE_FONT;
+    *(txtPtr)++ = FONT_NORMAL;
+
+    StringCopy(txtPtr, gTypeNames[gBattleMoves[moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]].type]);
+    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
 }
 
 static void MoveSelectionCreateCursorAt(u8 cursorPosition, u8 baseTileNum)
