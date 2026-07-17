@@ -541,6 +541,26 @@ SlateportCity_Pokemart_PowerTMs:
 	.2byte ITEM_TM_SECRET_POWER
 	pokemartlistend
 
+SlateportCity_EventScript_EvolutionItemClerk::
+	lock
+	faceplayer
+	message SlateportCity_Text_EvolutionItemClerkGreeting
+	waitmessage
+	pokemart SlateportCity_Pokemart_EvolutionItems
+	msgbox gText_PleaseComeAgain, MSGBOX_DEFAULT
+	release
+	end
+
+	.align 2
+SlateportCity_Pokemart_EvolutionItems:
+	.2byte ITEM_KINGS_ROCK
+	.2byte ITEM_METAL_COAT
+	.2byte ITEM_DRAGON_SCALE
+	.2byte ITEM_UP_GRADE
+	.2byte ITEM_DEEP_SEA_TOOTH
+	.2byte ITEM_DEEP_SEA_SCALE
+	pokemartlistend
+
 @ Scene with Capt Sterns interview and Team Aqua announcing plans to steal Submarine
 SlateportCity_EventScript_CaptStern::
 	lockall
@@ -920,6 +940,11 @@ SlateportCity_EventScript_BerryCrushRankingsSign::
 SlateportCity_Text_EnergyGuruSellWhatYouNeed:
 	.string "I'm the ENERGY GURU! I'll go for it and\n"
 	.string "sell you what you need!$"
+
+SlateportCity_Text_EvolutionItemClerkGreeting:
+	.string "Sailors bring me all sorts of odds and\n"
+	.string "ends from their travels. Take a look,\l"
+	.string "I sell them cheap!$"
 
 SlateportCity_Text_OhYourPokemon:
 	.string "Oh?\n"
