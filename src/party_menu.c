@@ -5135,7 +5135,6 @@ static void DisplayMonNeedsToReplaceMove(u8 taskId)
 
 static void DisplayMonLearnedMove(u8 taskId, u16 move)
 {
-    sCandyDispenserMoveLearned = TRUE;
     GetMonNickname(&gPlayerParty[gPartyMenu.slotId], gStringVar1);
     StringCopy(gStringVar2, gMoveNames[move]);
     StringExpandPlaceholders(gStringVar4, gText_PkmnLearnedMove3);
