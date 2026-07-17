@@ -1798,16 +1798,6 @@
                 "species": "SPECIES_WURMPLE"
               },
               {
-                "min_level": 5,
-                "max_level": 5,
-                "species": "SPECIES_SILCOON"
-              },
-              {
-                "min_level": 5,
-                "max_level": 5,
-                "species": "SPECIES_CASCOON"
-              },
-              {
                 "min_level": 6,
                 "max_level": 6,
                 "species": "SPECIES_SHROOMISH"
@@ -1818,6 +1808,16 @@
                 "species": "SPECIES_TAILLOW"
               },
               {
+                "min_level": 6,
+                "max_level": 6,
+                "species": "SPECIES_HOOTHOOT"
+              },
+              {
+                "min_level": 6,
+                "max_level": 6,
+                "species": "SPECIES_SPINARAK"
+              },
+              {
                 "min_level": 5,
                 "max_level": 5,
                 "species": "SPECIES_SLAKOTH"
@@ -1825,7 +1825,7 @@
               {
                 "min_level": 6,
                 "max_level": 6,
-                "species": "SPECIES_HOOTHOOT"
+                "species": "SPECIES_SLAKOTH"
               },
               {
                 "min_level": 5,
@@ -1840,7 +1840,7 @@
               {
                 "min_level": 6,
                 "max_level": 6,
-                "species": "SPECIES_SPINARAK"
+                "species": "SPECIES_POOCHYENA"
               },
               {
                 "min_level": 6,
