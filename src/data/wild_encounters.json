@@ -407,7 +407,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
@@ -561,7 +561,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
@@ -650,7 +650,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
@@ -2862,7 +2862,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
@@ -2951,7 +2951,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
@@ -8624,7 +8624,7 @@
               {
                 "min_level": 12,
                 "max_level": 15,
-                "species": "SPECIES_QWILFISH"
+                "species": "SPECIES_FEEBAS"
               }
             ]
           }
