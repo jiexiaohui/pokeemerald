@@ -757,53 +757,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               }
             ]
@@ -941,53 +941,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               }
             ]
@@ -1486,53 +1486,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               }
             ]
@@ -1640,53 +1640,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_POLIWAG"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CORPHISH"
               }
             ]
@@ -3082,53 +3082,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               }
             ]
@@ -8666,53 +8666,53 @@
             "encounter_rate": 20,
             "mons": [
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 15,
-                "max_level": 20,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 20,
-                "max_level": 25,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               },
               {
-                "min_level": 25,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_KRABBY"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_REMORAID"
               },
               {
-                "min_level": 28,
-                "max_level": 30,
+                "min_level": 13,
+                "max_level": 15,
                 "species": "SPECIES_CARVANHA"
               }
             ]
